@@ -46,6 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view latest >/dev/null 2>&1; then
+            gh release edit latest --target "${GITHUB_SHA}"
             gh release upload latest word-dictation.apk --clobber
           else
             gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "最新自动构建版本。直接下载 word-dictation.apk，无需解压。" --latest
