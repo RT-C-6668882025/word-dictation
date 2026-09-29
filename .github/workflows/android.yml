@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -35,3 +35,9 @@ jobs:
           name: word-dictation-apk
           path: word-dictation.apk
           retention-days: 30
+      - name: Publish direct APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "最新自动构建版本。直接下载 word-dictation.apk，无需解压。" --latest
