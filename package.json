@@ -19,11 +19,13 @@
     "xlsx": "latest",
     "vite-plugin-pwa": "latest",
     "@capacitor/core": "latest",
-    "@capacitor/android": "latest"
+    "@capacitor/android": "latest",
+    "papaparse": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@capacitor/cli": "latest"
+    "@capacitor/cli": "latest",
+    "@types/papaparse": "latest"
   }
 }
