@@ -83,8 +83,7 @@ jobs:
         run: |
           APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$APKSIGNER" verify --print-certs word-dictation.apk | tee signature.txt
-          ACTUAL_CERT_SHA256=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' signature.txt | head -1 | tr '[:upper:]' '[:lower:]')
-          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
+          grep -Fqi "$EXPECTED_CERT_SHA256" signature.txt
 
       - uses: actions/upload-artifact@v4
         with:
