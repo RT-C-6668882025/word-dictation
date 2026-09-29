@@ -31,16 +31,67 @@ jobs:
         run: npx cap add android
       - name: Sync web assets
         run: npx cap sync android
-      - name: Build debug APK
+
+      - name: Restore permanent signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/word-dictation-release.jks
+          test -s android/app/word-dictation-release.jks
+
+      - name: Configure release signing
+        run: |
+          cat >> android/app/build.gradle <<'EOF'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file("word-dictation-release.jks")
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
+      - name: Build signed release APK
         working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleDebug
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk word-dictation.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk word-dictation.apk
+
+      - name: Verify permanent APK signature
+        env:
+          EXPECTED_CERT_SHA256: b85efa80fe3ff6294bc5f00d572b5ecc0bf0d2ac98e3175d2acb136a9929e156
+        run: |
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --print-certs word-dictation.apk | tee signature.txt
+          ACTUAL_CERT_SHA256=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' signature.txt | head -1 | tr '[:upper:]' '[:lower:]')
+          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
+
       - uses: actions/upload-artifact@v4
         with:
           name: word-dictation-apk
           path: word-dictation.apk
           retention-days: 30
+
       - name: Publish direct APK download
         env:
           GH_TOKEN: ${{ github.token }}
@@ -49,5 +100,9 @@ jobs:
             gh release edit latest --target "${GITHUB_SHA}"
             gh release upload latest word-dictation.apk --clobber
           else
-            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "最新自动构建版本。直接下载 word-dictation.apk，无需解压。" --latest
+            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "最新正式签名版本。直接下载 word-dictation.apk，无需解压。" --latest
           fi
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f android/app/word-dictation-release.jks
