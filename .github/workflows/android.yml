@@ -19,8 +19,10 @@ jobs:
           java-version: 21
       - name: Install dependencies
         run: npm install
-      - name: Build web app
+      - name: Build web app for Android
         run: npm run build
+        env:
+          BUILD_TARGET: android
       - name: Create Android project
         run: npx cap add android
       - name: Sync web assets
