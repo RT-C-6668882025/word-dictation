@@ -4,6 +4,10 @@
 
 **为实体手写板而生的极简批量英语默写工具。**
 
+![Version](https://img.shields.io/badge/version-v0.3.0-171717?style=flat-square)
+![Android](https://img.shields.io/badge/Android-APK-171717?style=flat-square)
+![Local First](https://img.shields.io/badge/data-local--first-171717?style=flat-square)
+
 不是背单词平台，不是 AI 助教，也不是又一个一张一张翻的卡片应用。  
 导入词库，批量显示提示，在纸面 / 手写板上默写，然后自己判断哪些词还需要背。
 
