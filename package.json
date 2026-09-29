@@ -1,7 +1,7 @@
 {
   "name": "word-dictation",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,8 @@
     "vite-plugin-pwa": "latest",
     "@capacitor/core": "latest",
     "@capacitor/android": "latest",
-    "papaparse": "latest"
+    "papaparse": "latest",
+    "@capacitor/browser": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",

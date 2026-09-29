@@ -26,6 +26,7 @@ jobs:
         run: npm run build
         env:
           BUILD_TARGET: android
+          VITE_COMMIT_SHA: ${{ github.sha }}
       - name: Create Android project
         run: npx cap add android
       - name: Sync web assets
