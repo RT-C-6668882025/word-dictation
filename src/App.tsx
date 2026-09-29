@@ -1,9 +1,7 @@
-import{useMemo,useRef,useState}from'react';import * as XLSX from'xlsx';
+import{useMemo,useRef,useState}from'react';import * as XLSX from'xlsx';import{parseDelimited,parseSheetRows,parseText}from'./parser';
 
 type Word={id:string;en:string;zh:string};type Mode='zh-en'|'en-zh'|'random';
 const demo='abandon,放弃\nability,能力\nabsent,缺席的\nabsolute,绝对的\naccept,接受\nachieve,达到';
-const uid=()=>Math.random().toString(36).slice(2);
-function parseText(raw:string):Word[]{return raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(line=>{let clean=line.replace(/^[-*+]\s+/,'').replace(/^\d+[.)、]\s*/,'').trim();if(/^#{1,6}\s/.test(clean)||/^\|?\s*:?-{3,}/.test(clean))return null;let p:string[];if(clean.includes('|')){p=clean.replace(/^\||\|$/g,'').split('|').map(x=>x.trim()).filter(Boolean);if(p.length>2)p=p.slice(0,2)}else p=clean.split(/\t|,|，|<>|=>|\s+[—–-]\s+|：|:/).map(x=>x.trim()).filter(Boolean);if(p.length<2){const m=clean.match(/^([A-Za-z][A-Za-z\s'’.-]*?)\s+([\u3400-\u9fff].*)$/);if(m)return{id:uid(),en:m[1].trim(),zh:m[2].trim()};return null}const a=p[0].replace(/\*\*/g,''),b=p.slice(1).join('；').replace(/\*\*/g,'');if(/^(english|英文|word|单词)$/i.test(a)&&/^(chinese|中文|meaning|释义)$/i.test(b))return null;const aEn=/[A-Za-z]/.test(a);return{id:uid(),en:aEn?a:b,zh:aEn?b:a}}).filter((x):x is Word=>!!x&&!!x.en&&!!x.zh)}
 function shuffle<T>(a:T[]){return[...a].sort(()=>Math.random()-.5)}
 export default function App(){
  const[words,setWords]=useState<Word[]>(()=>{try{return JSON.parse(localStorage.getItem('wd_words')||'[]')}catch{return[]}});
@@ -14,7 +12,7 @@ export default function App(){
  const directions=useMemo(()=>Object.fromEntries(batch.map(w=>[w.id,mode==='random'?(Math.random()>.5?'zh-en':'en-zh'):mode])),[batch,mode,seed]);
  const save=(w:Word[])=>{setWords(w);localStorage.setItem('wd_words',JSON.stringify(w));setWrong(new Set());setOnlyWrong(false);setSeed(x=>x+1)};
  const importRaw=(raw:string)=>{const w=parseText(raw);if(w.length){save(w);setScreen('study')}else alert('没有识别到“英文 + 中文”数据')};
- const file=async(f:File)=>{if(/\.xlsx?$/i.test(f.name)){const wb=XLSX.read(await f.arrayBuffer());const rows=XLSX.utils.sheet_to_json<(string|number)[]>(wb.Sheets[wb.SheetNames[0]],{header:1});importRaw(rows.map(r=>r.slice(0,2).join('\t')).join('\n'))}else importRaw(await f.text())};
+ const file=async(f:File)=>{if(/\.xlsx?$/i.test(f.name)){const wb=XLSX.read(await f.arrayBuffer());const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});const w=parseSheetRows(rows);if(w.length){save(w);setScreen('study')}else alert('没有识别到“英文 + 中文”数据')}else{const raw=await f.text();const w=/\.csv$/i.test(f.name)?parseDelimited(raw):/\.tsv$/i.test(f.name)?parseDelimited(raw,'\t'):parseText(raw);if(w.length){save(w);setScreen('study')}else alert('没有识别到“英文 + 中文”数据')}};
  const next=()=>{setRevealed(false);setSeed(x=>x+1)};
  const openSelect=()=>{setSelection(new Set(practiceIds||[]));setBatchSelecting(false);setScreen('select')};
  const toggleSelection=(id:string)=>setSelection(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n});
