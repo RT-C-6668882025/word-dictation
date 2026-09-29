@@ -4,7 +4,7 @@
 
 ## 只做四件事
 
-1. 批量导入单词（粘贴 / TXT / CSV / Excel）
+1. 批量导入单词（粘贴 / TXT / CSV / Excel / Markdown）
 2. 一屏显示 10 / 20 / 30 / 40 个中文或英文提示
 3. 写完后一次性显示答案
 4. 点击错词标记，并只重练错词
@@ -32,7 +32,7 @@ npm run build
 abandon,放弃
 ability 能力
 absent | 缺席的
-absolute <> 绝对的
+absolute <> 绝对的\n\n| English | 中文 |\n|---|---|\n| achieve | 达到 |
 ```
 
 Excel 默认读取第一张表的前两列。
