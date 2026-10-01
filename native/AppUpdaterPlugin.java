@@ -3,6 +3,7 @@ package com.rtc.worddictation;
 import android.content.ClipData;
 import android.content.Intent;
 import android.app.PendingIntent;
+import android.app.ActivityOptions;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
@@ -200,9 +201,21 @@ public class AppUpdaterPlugin extends Plugin {
             result.setAction("com.rtc.worddictation.INSTALL_RESULT");
             int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) pendingFlags |= PendingIntent.FLAG_MUTABLE;
-            PendingIntent pending = PendingIntent.getActivity(
-                    getContext(), sessionId, result, pendingFlags
-            );
+            PendingIntent pending;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ActivityOptions options = ActivityOptions.makeBasic();
+                options.setPendingIntentCreatorBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                );
+                pending = PendingIntent.getActivity(
+                        getContext(), sessionId, result, pendingFlags, options.toBundle()
+                );
+            } else {
+                pending = PendingIntent.getActivity(
+                        getContext(), sessionId, result, pendingFlags
+                );
+            }
+            diag("session_committing", "sessionId=" + sessionId + " · BAL creator opt-in=" + (Build.VERSION.SDK_INT >= 34));
             session.commit(pending.getIntentSender());
         } catch (Exception e) {
             try { installer.abandonSession(sessionId); } catch (Exception ignored) {}
