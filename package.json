@@ -1,7 +1,7 @@
 {
   "name": "word-dictation",
   "private": true,
-  "version": "0.4.15",
+  "version": "0.4.16",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,7 +24,8 @@
     "@capacitor/browser": "latest",
     "@capacitor/preferences": "latest",
     "mammoth": "^1.10.0",
-    "pdfjs-dist": "^5.4.530"
+    "pdfjs-dist": "^5.4.530",
+    "@capacitor/app": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
