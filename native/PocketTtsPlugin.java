@@ -30,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -40,8 +41,10 @@ public class PocketTtsPlugin extends Plugin {
     private static final String MODEL_NAME = "sherpa-onnx-pocket-tts-int8-2026-01-26";
     private static final String OFFICIAL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" + MODEL_NAME + ".tar.bz2";
-    private static final String CHINA_URL =
-            "https://ghfast.top/" + OFFICIAL_URL;
+    private static final String GHFAST_URL = "https://ghfast.top/" + OFFICIAL_URL;
+    private static final String GHPROXY_NET_URL = "https://ghproxy.net/" + OFFICIAL_URL;
+    private static final String GITHUBPROXY_CC_URL = "https://githubproxy.cc/" + OFFICIAL_URL;
+    private static final String MODEL_SHA256 = "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile boolean downloading = false;
@@ -93,39 +96,44 @@ public class PocketTtsPlugin extends Plugin {
         worker.execute(() -> {
             File archive = new File(getContext().getCacheDir(), MODEL_NAME + ".tar.bz2");
             try {
-                String preferred = chooseSource(source);
-                String[] urls;
-                if ("auto".equals(source)) {
-                    urls = preferred.equals(CHINA_URL)
-                            ? new String[]{CHINA_URL, OFFICIAL_URL}
-                            : new String[]{OFFICIAL_URL, CHINA_URL};
-                } else {
-                    urls = new String[]{preferred};
-                }
-
+                String[] urls = sourceOrder(source);
                 String usedUrl = null;
                 Exception lastError = null;
-                for (String url : urls) {
+                for (int sourceIndex = 0; sourceIndex < urls.length; sourceIndex++) {
+                    String url = urls[sourceIndex];
                     archive.delete();
-                    for (int attempt = 1; attempt <= 3; attempt++) {
+                    for (int attempt = 1; attempt <= 2; attempt++) {
                         try {
-                            notifyDownloadState("正在连接", url, attempt);
+                            notifyDownloadState("正在连接 " + sourceName(url), url, attempt);
                             downloadResumable(url, archive);
-                            if (archive.length() < 50L * 1024 * 1024) {
-                                throw new Exception("下载内容异常（仅 " + (archive.length() / 1024 / 1024) + " MB）");
+                            if (archive.length() != 98336520L) {
+                                throw new Exception("文件大小异常：" + archive.length());
+                            }
+                            notifyDownloadState("正在校验模型", url, attempt);
+                            String digest = sha256(archive);
+                            if (!MODEL_SHA256.equalsIgnoreCase(digest)) {
+                                throw new SecurityException("模型校验失败");
                             }
                             usedUrl = url;
                             lastError = null;
                             break;
                         } catch (Exception e) {
                             lastError = e;
-                            notifyDownloadState("连接失败，正在重试", url, attempt);
-                            try { Thread.sleep(1200L * attempt); } catch (InterruptedException ignored) {}
+                            if (attempt < 2) {
+                                notifyDownloadState(sourceName(url) + " 失败，重试一次", url, attempt);
+                                try { Thread.sleep(800L); } catch (InterruptedException ignored) {}
+                            }
                         }
                     }
                     if (usedUrl != null) break;
+                    if (sourceIndex < urls.length - 1) {
+                        notifyDownloadState("自动切换下载源", urls[sourceIndex + 1], 0);
+                    }
                 }
-                if (usedUrl == null) throw (lastError != null ? lastError : new Exception("所有下载源均不可用"));
+                if (usedUrl == null) {
+                    String reason = lastError == null ? "未知错误" : lastError.getMessage();
+                    throw new Exception("全部下载源均失败：" + reason);
+                }
 
                 File parent = modelParent();
                 if (!parent.exists() && !parent.mkdirs()) throw new Exception("无法创建模型目录");
@@ -137,7 +145,7 @@ public class PocketTtsPlugin extends Plugin {
                 notifyListeners("downloadProgress", done);
                 JSObject ret = new JSObject();
                 ret.put("installed", true);
-                ret.put("source", usedUrl.startsWith("https://ghfast.top/") ? "cn" : "global");
+                ret.put("source", sourceName(usedUrl));
                 call.resolve(ret);
             } catch (Exception e) {
                 deleteRecursive(modelDir());
@@ -254,38 +262,41 @@ public class PocketTtsPlugin extends Plugin {
         }
     }
 
-    private String chooseSource(String source) {
-        if ("cn".equals(source)) return CHINA_URL;
-        if ("global".equals(source)) return OFFICIAL_URL;
-        long global = probe(OFFICIAL_URL);
-        long cn = probe(CHINA_URL);
-        if (cn >= 0 && (global < 0 || cn < global)) return CHINA_URL;
-        return OFFICIAL_URL;
+    private String[] sourceOrder(String source) {
+        if ("global".equals(source)) {
+            return new String[]{OFFICIAL_URL, GHFAST_URL, GHPROXY_NET_URL, GITHUBPROXY_CC_URL};
+        }
+        if ("cn".equals(source)) {
+            return new String[]{GHFAST_URL, GHPROXY_NET_URL, GITHUBPROXY_CC_URL, OFFICIAL_URL};
+        }
+        // Auto favors the two release mirrors that currently support Range requests,
+        // then falls back to official GitHub and a third mirror.
+        return new String[]{GHFAST_URL, GHPROXY_NET_URL, OFFICIAL_URL, GITHUBPROXY_CC_URL};
     }
 
-    private long probe(String address) {
-        long start = System.currentTimeMillis();
-        HttpURLConnection c = null;
-        try {
-            c = (HttpURLConnection) new URL(address).openConnection();
-            c.setInstanceFollowRedirects(true);
-            c.setConnectTimeout(3500);
-            c.setReadTimeout(3500);
-            c.setRequestProperty("Range", "bytes=0-0");
-            c.setRequestProperty("User-Agent", "Word-Dictation/0.4");
-            int code = c.getResponseCode();
-            if (code >= 200 && code < 400) return System.currentTimeMillis() - start;
-        } catch (Exception ignored) {
-        } finally {
-            if (c != null) c.disconnect();
+    private String sourceName(String address) {
+        if (address.startsWith("https://ghfast.top/")) return "GHFast";
+        if (address.startsWith("https://ghproxy.net/")) return "GHProxy.net";
+        if (address.startsWith("https://githubproxy.cc/")) return "GitHubProxy.cc";
+        return "GitHub";
+    }
+
+    private String sha256(File file) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            byte[] buf = new byte[256 * 1024];
+            int n;
+            while ((n = in.read(buf)) != -1) md.update(buf, 0, n);
         }
-        return -1;
+        StringBuilder out = new StringBuilder();
+        for (byte b : md.digest()) out.append(String.format("%02x", b));
+        return out.toString();
     }
 
     private void notifyDownloadState(String state, String address, int attempt) {
         JSObject p = new JSObject();
         p.put("state", state);
-        p.put("source", address.startsWith("https://ghfast.top/") ? "cn" : "global");
+        p.put("source", sourceName(address));
         p.put("attempt", attempt);
         notifyListeners("downloadProgress", p);
     }
@@ -294,9 +305,9 @@ public class PocketTtsPlugin extends Plugin {
         long existing = dest.exists() ? dest.length() : 0L;
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection();
         c.setInstanceFollowRedirects(true);
-        c.setConnectTimeout(30000);
-        c.setReadTimeout(120000);
-        c.setRequestProperty("User-Agent", "Word-Dictation/0.4");
+        c.setConnectTimeout(12000);
+        c.setReadTimeout(60000);
+        c.setRequestProperty("User-Agent", "Word-Dictation/0.4.1");
         c.setRequestProperty("Accept", "application/octet-stream,*/*");
         if (existing > 0) c.setRequestProperty("Range", "bytes=" + existing + "-");
         c.connect();
@@ -330,7 +341,7 @@ public class PocketTtsPlugin extends Plugin {
                     p.put("progress", progress);
                     p.put("downloaded", done);
                     p.put("total", total);
-                    p.put("source", address.startsWith("https://ghfast.top/") ? "cn" : "global");
+                    p.put("source", sourceName(address));
                     notifyListeners("downloadProgress", p);
                 }
             }
