@@ -16,6 +16,7 @@ import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsPocketModelConfig;
 import com.k2fsa.sherpa.onnx.WaveReader;
+import com.k2fsa.sherpa.onnx.WaveData;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -144,7 +145,7 @@ public class PocketTtsPlugin extends Plugin {
             AudioTrack track = null;
             try {
                 ensureTts();
-                int sampleRate = tts.getSampleRate();
+                int sampleRate = tts.sampleRate();
                 int minBuffer = AudioTrack.getMinBufferSize(
                         sampleRate,
                         AudioFormat.CHANNEL_OUT_MONO,
@@ -167,10 +168,10 @@ public class PocketTtsPlugin extends Plugin {
                 final AudioTrack out = track;
                 out.play();
 
-                WaveReader reader = new WaveReader(new File(modelDir(), "test_wavs/bria.wav").getAbsolutePath());
+                WaveData wave = WaveReader.Companion.readWave(new File(modelDir(), "test_wavs/bria.wav").getAbsolutePath());
                 GenerationConfig config = new GenerationConfig();
-                config.setReferenceAudio(reader.getSamples());
-                config.setReferenceSampleRate(reader.getSampleRate());
+                config.setReferenceAudio(wave.getSamples());
+                config.setReferenceSampleRate(wave.getSampleRate());
                 config.setNumSteps(2);
                 config.setSpeed(safeSpeed);
                 Map<String, String> extra = new HashMap<>();
@@ -196,23 +197,22 @@ public class PocketTtsPlugin extends Plugin {
     private synchronized void ensureTts() {
         if (tts != null) return;
         File d = modelDir();
-        OfflineTtsPocketModelConfig pocket = OfflineTtsPocketModelConfig.builder()
-                .setLmFlow(new File(d, "lm_flow.int8.onnx").getAbsolutePath())
-                .setLmMain(new File(d, "lm_main.int8.onnx").getAbsolutePath())
-                .setEncoder(new File(d, "encoder.onnx").getAbsolutePath())
-                .setDecoder(new File(d, "decoder.int8.onnx").getAbsolutePath())
-                .setTextConditioner(new File(d, "text_conditioner.onnx").getAbsolutePath())
-                .setVocabJson(new File(d, "vocab.json").getAbsolutePath())
-                .setTokenScoresJson(new File(d, "token_scores.json").getAbsolutePath())
-                .setVoiceEmbeddingCacheCapacity(4)
-                .build();
-        OfflineTtsModelConfig model = OfflineTtsModelConfig.builder()
-                .setPocket(pocket)
-                .setNumThreads(2)
-                .setDebug(false)
-                .build();
-        OfflineTtsConfig config = OfflineTtsConfig.builder().setModel(model).build();
-        tts = new OfflineTts(config);
+        OfflineTtsPocketModelConfig pocket = new OfflineTtsPocketModelConfig();
+        pocket.setLmFlow(new File(d, "lm_flow.int8.onnx").getAbsolutePath());
+        pocket.setLmMain(new File(d, "lm_main.int8.onnx").getAbsolutePath());
+        pocket.setEncoder(new File(d, "encoder.onnx").getAbsolutePath());
+        pocket.setDecoder(new File(d, "decoder.int8.onnx").getAbsolutePath());
+        pocket.setTextConditioner(new File(d, "text_conditioner.onnx").getAbsolutePath());
+        pocket.setVocabJson(new File(d, "vocab.json").getAbsolutePath());
+        pocket.setTokenScoresJson(new File(d, "token_scores.json").getAbsolutePath());
+        pocket.setVoiceEmbeddingCacheCapacity(4);
+        OfflineTtsModelConfig model = new OfflineTtsModelConfig();
+        model.setPocket(pocket);
+        model.setNumThreads(2);
+        model.setDebug(false);
+        OfflineTtsConfig config = new OfflineTtsConfig();
+        config.setModel(model);
+        tts = new OfflineTts(null, config);
     }
 
     private synchronized void releaseTts() {
