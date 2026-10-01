@@ -57,7 +57,13 @@ jobs:
           p=Path("android/app/src/main/AndroidManifest.xml")
           s=p.read_text()
           import re
-          s=re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />', s, count=1)
+          s=re.sub(r'(<manifest[^>]*>)', r'''\1
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>''', s, count=1)
           provider='''\n        <provider
               android:name="androidx.core.content.FileProvider"
               android:authorities="com.rtc.worddictation.updater"
