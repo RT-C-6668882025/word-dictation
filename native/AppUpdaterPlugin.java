@@ -28,6 +28,57 @@ public class AppUpdaterPlugin extends Plugin {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile boolean downloading = false;
 
+    private File pendingApk() {
+        File dir = new File(getContext().getFilesDir(), "updates");
+        if (!dir.exists()) dir.mkdirs();
+        return new File(dir, "word-dictation-update.apk");
+    }
+
+    private boolean hasValidPendingApk() {
+        File apk = pendingApk();
+        if (!apk.isFile()) return false;
+        try {
+            validateApk(apk, "");
+            return true;
+        } catch (Exception e) {
+            apk.delete();
+            return false;
+        }
+    }
+
+    @PluginMethod
+    public void getPendingUpdate(PluginCall call) {
+        JSObject out = new JSObject();
+        out.put("pending", hasValidPendingApk());
+        call.resolve(out);
+    }
+
+    @PluginMethod
+    public void installPending(PluginCall call) {
+        File apk = pendingApk();
+        try {
+            validateApk(apk, "");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                    !getContext().getPackageManager().canRequestPackageInstalls()) {
+                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getContext().getPackageName()));
+                getActivity().startActivity(settings);
+                JSObject out = new JSObject();
+                out.put("pending", true);
+                out.put("needsPermission", true);
+                call.resolve(out);
+                return;
+            }
+            installWithPackageInstaller(apk);
+            JSObject out = new JSObject();
+            out.put("pending", true);
+            out.put("installer", "PackageInstaller.Session");
+            call.resolve(out);
+        } catch (Exception e) {
+            call.reject("继续安装失败：" + e.getMessage());
+        }
+    }
+
     @PluginMethod
     public void downloadAndInstall(PluginCall call) {
         if (downloading) { call.reject("更新正在下载"); return; }
@@ -38,21 +89,32 @@ public class AppUpdaterPlugin extends Plugin {
         }
         downloading = true;
         worker.execute(() -> {
-            File apk = new File(getContext().getCacheDir(), "word-dictation-update.apk");
+            File apk = pendingApk();
             Exception last = null;
             String[] urls = {url, "https://ghfast.top/" + url, "https://ghproxy.net/" + url, "https://githubproxy.cc/" + url};
             try {
                 boolean ok = false;
-                for (String candidate : urls) {
+                if (apk.isFile()) {
                     try {
-                        if (apk.exists()) apk.delete();
-                        emit("正在下载", 0, sourceName(candidate));
-                        download(candidate, apk);
                         validateApk(apk, expectedDigest);
-                        ok = true; break;
-                    } catch (Exception e) {
-                        last = e;
-                        emit("切换下载源", 0, sourceName(candidate));
+                        emit("已下载，准备安装", 100, "");
+                        ok = true;
+                    } catch (Exception ignored) {
+                        apk.delete();
+                    }
+                }
+                if (!ok) {
+                    for (String candidate : urls) {
+                        try {
+                            if (apk.exists()) apk.delete();
+                            emit("正在下载", 0, sourceName(candidate));
+                            download(candidate, apk);
+                            validateApk(apk, expectedDigest);
+                            ok = true; break;
+                        } catch (Exception e) {
+                            last = e;
+                            emit("切换下载源", 0, sourceName(candidate));
+                        }
                     }
                 }
                 if (!ok) throw (last != null ? last : new Exception("全部下载源不可用"));
@@ -62,13 +124,18 @@ public class AppUpdaterPlugin extends Plugin {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
                             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
                             getActivity().startActivity(settings);
-                            call.reject("首次使用请允许“安装未知应用”，返回后再点一次更新");
+                            JSObject out = new JSObject();
+                            out.put("downloaded", true);
+                            out.put("pending", true);
+                            out.put("needsPermission", true);
+                            call.resolve(out);
                             return;
                         }
                         installWithPackageInstaller(apk);
                         JSObject out = new JSObject();
                         out.put("downloaded", true);
                         out.put("installer", "PackageInstaller.Session");
+                        out.put("pending", true);
                         call.resolve(out);
                     } catch (Exception e) { call.reject("启动安装失败：" + e.getMessage()); }
                 });
