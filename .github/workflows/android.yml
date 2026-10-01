@@ -44,6 +44,7 @@ jobs:
         run: |
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
           cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
+          cp native/InstallResultActivity.java android/app/src/main/java/com/rtc/worddictation/InstallResultActivity.java
           cp native/MainActivity.java android/app/src/main/java/com/rtc/worddictation/MainActivity.java
           mkdir -p android/app/src/main/res/xml
           cat > android/app/src/main/res/xml/updater_paths.xml <<'EOF'
@@ -69,6 +70,13 @@ jobs:
                   android:resource="@xml/updater_paths" />
           </provider>'''
           s=s.replace("</application>", provider+"\n    </application>")
+          activity='''\n        <activity
+              android:name=".InstallResultActivity"
+              android:theme="@android:style/Theme.Translucent.NoTitleBar"
+              android:exported="false"
+              android:excludeFromRecents="true" />'''
+          s=s.replace("</application>", activity+"\n    </application>")
+
           p.write_text(s)
           PY
           cat >> android/build.gradle <<'EOF'
@@ -148,8 +156,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='409'"
-          echo "$BADGING" | grep -F "versionName='0.4.9'"
+          echo "$BADGING" | grep -F "versionCode='410'"
+          echo "$BADGING" | grep -F "versionName='0.4.10'"
 
       - name: Verify permanent APK signature
         env:
