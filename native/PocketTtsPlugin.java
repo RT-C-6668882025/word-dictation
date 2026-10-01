@@ -4,6 +4,9 @@ import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -34,6 +37,8 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -166,6 +171,53 @@ public class PocketTtsPlugin extends Plugin {
             JSObject ret = new JSObject();
             ret.put("installed", false);
             call.resolve(ret);
+        });
+    }
+
+    @PluginMethod
+    public void speakSystem(PluginCall call) {
+        String text = call.getString("text", "").trim();
+        float speed = call.getFloat("speed", 1.0f);
+        if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
+        final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
+        getActivity().runOnUiThread(() -> {
+            final TextToSpeech[] holder = new TextToSpeech[1];
+            holder[0] = new TextToSpeech(getContext(), status -> {
+                TextToSpeech engine = holder[0];
+                if (status != TextToSpeech.SUCCESS || engine == null) {
+                    if (engine != null) engine.shutdown();
+                    call.reject("系统语音初始化失败");
+                    return;
+                }
+                int lang = engine.setLanguage(Locale.US);
+                if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    engine.shutdown();
+                    call.reject("系统缺少英语语音");
+                    return;
+                }
+                engine.setSpeechRate(safeSpeed);
+                String id = "wd-" + UUID.randomUUID();
+                engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String utteranceId) {}
+                    @Override public void onDone(String utteranceId) {
+                        engine.shutdown();
+                        call.resolve();
+                    }
+                    @Override public void onError(String utteranceId) {
+                        engine.shutdown();
+                        call.reject("系统语音播放失败");
+                    }
+                    @Override public void onError(String utteranceId, int errorCode) {
+                        engine.shutdown();
+                        call.reject("系统语音播放失败：" + errorCode);
+                    }
+                });
+                int result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
+                if (result == TextToSpeech.ERROR) {
+                    engine.shutdown();
+                    call.reject("系统语音启动失败");
+                }
+            });
         });
     }
 
