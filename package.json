@@ -22,7 +22,9 @@
     "@capacitor/android": "latest",
     "papaparse": "latest",
     "@capacitor/browser": "latest",
-    "@capacitor/preferences": "latest"
+    "@capacitor/preferences": "latest",
+    "mammoth": "^1.10.0",
+    "pdfjs-dist": "^5.4.530"
   },
   "devDependencies": {
     "@types/react": "latest",
