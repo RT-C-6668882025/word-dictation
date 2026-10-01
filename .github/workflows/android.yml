@@ -56,8 +56,8 @@ jobs:
           from pathlib import Path
           p=Path("android/app/src/main/AndroidManifest.xml")
           s=p.read_text()
-          s=s.replace("<manifest ", '<manifest ')
-          s=s.replace(">", '>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />', 1)
+          import re
+          s=re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />', s, count=1)
           provider='''\n        <provider
               android:name="androidx.core.content.FileProvider"
               android:authorities="com.rtc.worddictation.updater"
