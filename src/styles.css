@@ -24,3 +24,30 @@
 .indexRow .indexNo{font-variant-numeric:tabular-nums;color:#aaa;font-size:12px}.indexRow strong{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.indexRow>span:nth-of-type(2){font-size:14px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.indexRow small{text-align:right;color:#999;white-space:nowrap}
 .indexEmpty{text-align:center;color:#999;padding:64px 0}
 @media(max-width:700px){.wordIndex{padding:14px 12px 100px}.indexSearch{top:64px}.indexRow{grid-template-columns:42px minmax(105px,.85fr) minmax(110px,1.15fr);gap:10px;padding:10px 12px}.indexRow small{display:none}.indexRow strong{font-size:16px}}
+
+/* v0.4.17: content width follows the selected language instead of reserving an invisible column */
+html,body,#root{max-width:100%;overflow-x:hidden}
+.shell{width:100%;min-width:0}
+header{min-width:0;gap:18px}
+header>div:first-child{min-width:0;flex:1;overflow:hidden}
+header>div:first-child>b{display:block;min-width:0;max-width:min(48vw,520px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header>div:first-child>span{flex:none;white-space:nowrap}
+.headerActions{flex:none;min-width:0}
+.book>div:first-child{min-width:0;flex:1;overflow:hidden}
+.book strong{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bookRight{flex:none}
+
+.word.view-zh,.word.view-en{grid-template-columns:minmax(0,1fr);gap:0}
+.word.view-zh .englishCell{display:none}
+.word.view-en .answer{display:none}
+.word.view-zh .answer{display:block;grid-column:1/-1;width:100%;text-align:center;color:#555;white-space:normal;word-break:normal;overflow-wrap:break-word;line-height:1.55}
+.word.view-en .englishCell{display:flex;grid-column:1/-1;width:100%;justify-content:center;min-width:0}
+.word.view-en strong{white-space:normal;word-break:normal;overflow-wrap:break-word;text-align:center;line-height:1.35}
+.word.view-both{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.word.view-both .englishCell{min-width:0}
+.word.view-both strong{white-space:normal;word-break:normal;overflow-wrap:break-word}
+.word.view-both .answer{word-break:normal;overflow-wrap:break-word}
+@media(max-width:1050px){
+ header>div:first-child>b{max-width:32vw}
+ .word.view-zh .answer,.word.view-en strong{font-size:18px}
+}
