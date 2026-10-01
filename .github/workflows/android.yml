@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: android-apk
+  group: android-apk-v2
   cancel-in-progress: true
 jobs:
   apk:
