@@ -2,7 +2,9 @@ package com.rtc.worddictation;
 
 import android.content.ClipData;
 import android.content.Intent;
+import android.app.PendingIntent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.pm.ResolveInfo;
@@ -63,46 +65,52 @@ public class AppUpdaterPlugin extends Plugin {
                             call.reject("首次使用请允许“安装未知应用”，返回后再点一次更新");
                             return;
                         }
-                        Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".updater", apk);
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setDataAndType(uri, "application/vnd.android.package-archive");
-                        intent.setClipData(ClipData.newRawUri("word-dictation-update", uri));
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-
-                        // Some Xiaomi/HyperOS package installers do not preserve the
-                        // transient grant from ACTION_VIEW reliably. Grant every APK
-                        // installer that can resolve this intent explicit read access.
-                        PackageManager pm = getContext().getPackageManager();
-                        List<ResolveInfo> handlers = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-                        for (ResolveInfo handler : handlers) {
-                            if (handler.activityInfo != null && handler.activityInfo.packageName != null) {
-                                getContext().grantUriPermission(
-                                        handler.activityInfo.packageName,
-                                        uri,
-                                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                );
-                            }
-                        }
-                        // Known installer package names are attempted as a second layer;
-                        // nonexistent packages are harmless and simply ignored.
-                        String[] knownInstallers = {
-                                "com.miui.packageinstaller",
-                                "com.google.android.packageinstaller",
-                                "com.android.packageinstaller"
-                        };
-                        for (String installer : knownInstallers) {
-                            try {
-                                getContext().grantUriPermission(installer, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                            } catch (Exception ignored) {}
-                        }
-
-                        getActivity().startActivity(intent);
-                        JSObject out = new JSObject(); out.put("downloaded", true); call.resolve(out);
+                        installWithPackageInstaller(apk);
+                        JSObject out = new JSObject();
+                        out.put("downloaded", true);
+                        out.put("installer", "PackageInstaller.Session");
+                        call.resolve(out);
                     } catch (Exception e) { call.reject("启动安装失败：" + e.getMessage()); }
                 });
             } catch (Exception e) { call.reject("更新下载失败：" + e.getMessage()); }
             finally { downloading = false; }
         });
+    }
+
+    private void installWithPackageInstaller(File apk) throws Exception {
+        PackageInstaller installer = getContext().getPackageManager().getPackageInstaller();
+        PackageInstaller.SessionParams params =
+                new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        params.setAppPackageName(getContext().getPackageName());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+        }
+        int sessionId = installer.createSession(params);
+        PackageInstaller.Session session = null;
+        try {
+            session = installer.openSession(sessionId);
+            try (InputStream in = new BufferedInputStream(new FileInputStream(apk));
+                 OutputStream out = session.openWrite("base.apk", 0, apk.length())) {
+                byte[] buffer = new byte[128 * 1024];
+                int n;
+                while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                session.fsync(out);
+            }
+
+            Intent result = new Intent(getContext(), InstallResultActivity.class);
+            result.setAction("com.rtc.worddictation.INSTALL_RESULT");
+            int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) pendingFlags |= PendingIntent.FLAG_MUTABLE;
+            PendingIntent pending = PendingIntent.getActivity(
+                    getContext(), sessionId, result, pendingFlags
+            );
+            session.commit(pending.getIntentSender());
+        } catch (Exception e) {
+            try { installer.abandonSession(sessionId); } catch (Exception ignored) {}
+            throw e;
+        } finally {
+            if (session != null) session.close();
+        }
     }
 
     private void validateApk(File apk, String expectedDigest) throws Exception {
