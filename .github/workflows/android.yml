@@ -164,15 +164,34 @@ jobs:
           path: word-dictation.apk
           retention-days: 30
 
-      - name: Publish direct APK download
+      - name: Publish versioned GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v${VERSION}"
+          NOTES="## Word Dictation v${VERSION}
+
+          - 新增应用内更新：不再跳浏览器下载 APK
+          - App 内显示下载进度，并自动切换下载源
+          - 下载完成后直接唤起 Android 系统安装器
+          - 继续使用固定签名与递增 versionCode，覆盖更新保留词库
+          - 词库使用 localStorage + Android Preferences 双重持久化
+          - 修复离线语音连续朗读可能导致的原生闪退"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
+            gh release upload "${TAG}" word-dictation.apk --clobber
+          else
+            gh release create "${TAG}" word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
+          fi
+
+          # Keep the stable /latest/download URL working for old clients.
           if gh release view latest >/dev/null 2>&1; then
             gh release edit latest --target "${GITHUB_SHA}"
             gh release upload latest word-dictation.apk --clobber
           else
-            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "最新正式签名版本。直接下载 word-dictation.apk，无需解压。" --latest
+            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "稳定下载入口。" 
           fi
 
       - name: Remove signing key
