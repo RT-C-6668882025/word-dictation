@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @CapacitorPlugin(name = "PocketTts")
 public class PocketTtsPlugin extends Plugin {
@@ -65,6 +66,8 @@ public class PocketTtsPlugin extends Plugin {
     private static final String MODEL_SHA256 = "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService speechWorker = Executors.newSingleThreadExecutor();
+    private final AtomicInteger pocketSpeakGeneration = new AtomicInteger(0);
     private volatile boolean downloading = false;
     private OfflineTts tts;
 
@@ -341,7 +344,8 @@ public class PocketTtsPlugin extends Plugin {
             return;
         }
         final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
-        worker.execute(() -> {
+        final int requestId = pocketSpeakGeneration.incrementAndGet();
+        speechWorker.execute(() -> {
             AudioTrack track = null;
             try {
                 ensureTts();
@@ -386,6 +390,10 @@ public class PocketTtsPlugin extends Plugin {
                 }
                 if (audio.getSampleRate() != sampleRate) {
                     throw new Exception("音频采样率异常：" + audio.getSampleRate());
+                }
+                if (requestId != pocketSpeakGeneration.get()) {
+                    call.resolve();
+                    return;
                 }
                 track.play();
                 float[] samples = audio.getSamples();
@@ -565,6 +573,8 @@ public class PocketTtsPlugin extends Plugin {
             systemTts.shutdown();
             systemTts = null;
         }
+        pocketSpeakGeneration.incrementAndGet();
+        speechWorker.shutdownNow();
         worker.shutdownNow();
         super.handleOnDestroy();
     }
