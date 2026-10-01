@@ -43,7 +43,33 @@ jobs:
       - name: Install Pocket TTS Android bridge
         run: |
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
+          cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
           cp native/MainActivity.java android/app/src/main/java/com/rtc/worddictation/MainActivity.java
+          mkdir -p android/app/src/main/res/xml
+          cat > android/app/src/main/res/xml/updater_paths.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <cache-path name="updates" path="." />
+          </paths>
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("android/app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=s.replace("<manifest ", '<manifest ')
+          s=s.replace(">", '>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />', 1)
+          provider='''\n        <provider
+              android:name="androidx.core.content.FileProvider"
+              android:authorities="com.rtc.worddictation.updater"
+              android:exported="false"
+              android:grantUriPermissions="true">
+              <meta-data
+                  android:name="android.support.FILE_PROVIDER_PATHS"
+                  android:resource="@xml/updater_paths" />
+          </provider>'''
+          s=s.replace("</application>", provider+"\n    </application>")
+          p.write_text(s)
+          PY
           cat >> android/build.gradle <<'EOF'
 
           allprojects {
@@ -121,8 +147,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='403'"
-          echo "$BADGING" | grep -F "versionName='0.4.3'"
+          echo "$BADGING" | grep -F "versionCode='404'"
+          echo "$BADGING" | grep -F "versionName='0.4.4'"
 
       - name: Verify permanent APK signature
         env:
