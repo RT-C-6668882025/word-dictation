@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Locale;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -182,10 +183,16 @@ public class PocketTtsPlugin extends Plugin {
         if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
         final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
         getActivity().runOnUiThread(() -> {
-            TextToSpeech probe = new TextToSpeech(getContext(), status -> {});
-            List<TextToSpeech.EngineInfo> engines = probe.getEngines();
-            probe.shutdown();
-            if (engines == null || engines.isEmpty()) {
+            List<ResolveInfo> services = getContext().getPackageManager()
+                    .queryIntentServices(new Intent("android.intent.action.TTS_SERVICE"), 0);
+            List<String> engines = new ArrayList<>();
+            for (ResolveInfo service : services) {
+                if (service.serviceInfo != null && service.serviceInfo.packageName != null
+                        && !engines.contains(service.serviceInfo.packageName)) {
+                    engines.add(service.serviceInfo.packageName);
+                }
+            }
+            if (engines.isEmpty()) {
                 call.reject("系统没有可用的语音引擎");
                 return;
             }
@@ -194,12 +201,12 @@ public class PocketTtsPlugin extends Plugin {
     }
 
     private void speakWithSystemEngine(PluginCall call, String text, float speed,
-                                       List<TextToSpeech.EngineInfo> engines, int index) {
+                                       List<String> engines, int index) {
         if (index >= engines.size()) {
             call.reject("系统语音引擎均无法使用英语");
             return;
         }
-        String packageName = engines.get(index).name;
+        String packageName = engines.get(index);
         final TextToSpeech[] holder = new TextToSpeech[1];
         holder[0] = new TextToSpeech(getContext(), status -> {
             TextToSpeech engine = holder[0];
