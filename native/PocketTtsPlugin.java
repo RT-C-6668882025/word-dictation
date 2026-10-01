@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -48,6 +49,13 @@ import java.util.concurrent.Executors;
 
 @CapacitorPlugin(name = "PocketTts")
 public class PocketTtsPlugin extends Plugin {
+    private TextToSpeech systemTts;
+    private String systemTtsPackage = "";
+    private boolean systemTtsReady = false;
+    private int systemTtsGeneration = 0;
+    private PluginCall activeSystemCall;
+    private String activeUtteranceId = "";
+
     private static final String MODEL_NAME = "sherpa-onnx-pocket-tts-int8-2026-01-26";
     private static final String OFFICIAL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" + MODEL_NAME + ".tar.bz2";
@@ -179,9 +187,28 @@ public class PocketTtsPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getSystemEngines(PluginCall call) {
+        JSArray out = new JSArray();
+        List<ResolveInfo> services = getContext().getPackageManager()
+                .queryIntentServices(new Intent("android.intent.action.TTS_SERVICE"), 0);
+        for (ResolveInfo service : services) {
+            if (service.serviceInfo == null || service.serviceInfo.packageName == null) continue;
+            JSObject item = new JSObject();
+            item.put("id", service.serviceInfo.packageName);
+            CharSequence label = service.loadLabel(getContext().getPackageManager());
+            item.put("name", label == null ? service.serviceInfo.packageName : label.toString());
+            out.put(item);
+        }
+        JSObject result = new JSObject();
+        result.put("engines", out);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void speakSystem(PluginCall call) {
         String text = call.getString("text", "").trim();
         float speed = call.getFloat("speed", 1.0f);
+        String requestedEngine = call.getString("engine", "").trim();
         if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
         final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
         getActivity().runOnUiThread(() -> {
@@ -194,59 +221,112 @@ public class PocketTtsPlugin extends Plugin {
                     engines.add(service.serviceInfo.packageName);
                 }
             }
-            if (engines.isEmpty()) {
-                call.reject("系统没有可用的语音引擎");
-                return;
+            if (engines.isEmpty()) { call.reject("系统没有可用的语音引擎"); return; }
+            if (!requestedEngine.isEmpty()) {
+                if (!engines.contains(requestedEngine)) {
+                    call.reject("指定的语音引擎不可用");
+                    return;
+                }
+                engines.clear();
+                engines.add(requestedEngine);
             }
-            speakWithSystemEngine(call, text, safeSpeed, engines, 0);
+            speakWithPersistentSystemEngine(call, text, safeSpeed, engines, 0);
         });
     }
 
-    private void speakWithSystemEngine(PluginCall call, String text, float speed,
-                                       List<String> engines, int index) {
-        if (index >= engines.size()) {
-            call.reject("系统语音引擎均无法使用英语");
+    private void speakWithPersistentSystemEngine(PluginCall call, String text, float speed,
+                                                  List<String> engines, int index) {
+        if (index >= engines.size()) { call.reject("系统语音引擎均无法使用英语"); return; }
+        String packageName = engines.get(index);
+
+        if (systemTts != null && systemTtsReady && packageName.equals(systemTtsPackage)) {
+            speakNow(call, text, speed);
             return;
         }
-        String packageName = engines.get(index);
+
+        stopSystemSpeech();
+        if (systemTts != null) {
+            systemTts.shutdown();
+            systemTts = null;
+        }
+        systemTtsReady = false;
+        systemTtsPackage = packageName;
+        int generation = ++systemTtsGeneration;
         final TextToSpeech[] holder = new TextToSpeech[1];
         holder[0] = new TextToSpeech(getContext(), status -> {
-            TextToSpeech engine = holder[0];
-            if (status != TextToSpeech.SUCCESS || engine == null) {
-                if (engine != null) engine.shutdown();
-                speakWithSystemEngine(call, text, speed, engines, index + 1);
+            if (generation != systemTtsGeneration) {
+                if (holder[0] != null) holder[0].shutdown();
                 return;
             }
-            int lang = engine.setLanguage(Locale.US);
+            systemTts = holder[0];
+            if (status != TextToSpeech.SUCCESS || systemTts == null) {
+                if (systemTts != null) systemTts.shutdown();
+                systemTts = null;
+                systemTtsReady = false;
+                speakWithPersistentSystemEngine(call, text, speed, engines, index + 1);
+                return;
+            }
+            int lang = systemTts.setLanguage(Locale.US);
             if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
-                engine.shutdown();
-                speakWithSystemEngine(call, text, speed, engines, index + 1);
+                systemTts.shutdown();
+                systemTts = null;
+                systemTtsReady = false;
+                speakWithPersistentSystemEngine(call, text, speed, engines, index + 1);
                 return;
             }
-            engine.setSpeechRate(speed);
-            String id = "wd-" + UUID.randomUUID();
-            engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            systemTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String utteranceId) {}
                 @Override public void onDone(String utteranceId) {
-                    engine.shutdown();
-                    call.resolve();
+                    if (!utteranceId.equals(activeUtteranceId)) return;
+                    PluginCall done = activeSystemCall;
+                    activeSystemCall = null;
+                    activeUtteranceId = "";
+                    if (done != null) done.resolve();
                 }
                 @Override public void onError(String utteranceId) {
-                    engine.shutdown();
-                    call.reject("系统语音播放失败：" + packageName);
+                    finishSystemError(utteranceId, "系统语音播放失败");
                 }
                 @Override public void onError(String utteranceId, int errorCode) {
-                    engine.shutdown();
-                    call.reject("系统语音播放失败：" + packageName + " · " + errorCode);
+                    finishSystemError(utteranceId, "系统语音播放失败：" + errorCode);
                 }
             });
-            int result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
-            if (result == TextToSpeech.ERROR) {
-                engine.shutdown();
-                speakWithSystemEngine(call, text, speed, engines, index + 1);
-            }
+            systemTtsReady = true;
+            speakNow(call, text, speed);
         }, packageName);
     }
+
+    private void speakNow(PluginCall call, String text, float speed) {
+        if (systemTts == null || !systemTtsReady) { call.reject("系统语音尚未就绪"); return; }
+        stopSystemSpeech();
+        systemTts.setSpeechRate(speed);
+        String id = "wd-" + UUID.randomUUID();
+        activeSystemCall = call;
+        activeUtteranceId = id;
+        int result = systemTts.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
+        if (result == TextToSpeech.ERROR) {
+            activeSystemCall = null;
+            activeUtteranceId = "";
+            call.reject("系统语音启动失败");
+        }
+    }
+
+    private void stopSystemSpeech() {
+        if (activeSystemCall != null) {
+            activeSystemCall.resolve();
+            activeSystemCall = null;
+        }
+        activeUtteranceId = "";
+        if (systemTts != null) systemTts.stop();
+    }
+
+    private void finishSystemError(String utteranceId, String message) {
+        if (!utteranceId.equals(activeUtteranceId)) return;
+        PluginCall failed = activeSystemCall;
+        activeSystemCall = null;
+        activeUtteranceId = "";
+        if (failed != null) failed.reject(message);
+    }
+
 
     @PluginMethod
     public void speak(PluginCall call) {
@@ -480,6 +560,11 @@ public class PocketTtsPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         releaseTts();
+        stopSystemSpeech();
+        if (systemTts != null) {
+            systemTts.shutdown();
+            systemTts = null;
+        }
         worker.shutdownNow();
         super.handleOnDestroy();
     }
