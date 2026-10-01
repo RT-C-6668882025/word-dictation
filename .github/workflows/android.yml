@@ -36,7 +36,14 @@ jobs:
         run: |
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
           cp native/MainActivity.java android/app/src/main/java/com/rtc/worddictation/MainActivity.java
-          sed -i '/mavenCentral()/a\\        maven { url "https://jitpack.io" }' android/settings.gradle
+          cat >> android/build.gradle <<'EOF'
+
+          allprojects {
+              repositories {
+                  maven { url 'https://jitpack.io' }
+              }
+          }
+          EOF
           cat >> android/app/build.gradle <<'EOF'
 
           dependencies {
