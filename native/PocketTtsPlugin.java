@@ -217,7 +217,7 @@ public class PocketTtsPlugin extends Plugin {
         float speed = call.getFloat("speed", 1.0f);
         String requestedEngine = call.getString("engine", "").trim();
         if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
-        final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
+        final float safeSpeed = Math.max(0.5f, Math.min(2.0f, speed));
         getActivity().runOnUiThread(() -> {
             List<ResolveInfo> services = getContext().getPackageManager()
                     .queryIntentServices(new Intent("android.intent.action.TTS_SERVICE"), 0);
@@ -236,6 +236,10 @@ public class PocketTtsPlugin extends Plugin {
                 }
                 engines.clear();
                 engines.add(requestedEngine);
+            } else {
+                // Empty engine means Android's actual user-selected default TTS.
+                engines.clear();
+                engines.add("");
             }
             speakWithPersistentSystemEngine(call, text, safeSpeed, engines, 0);
         });
@@ -260,7 +264,7 @@ public class PocketTtsPlugin extends Plugin {
         systemTtsPackage = packageName;
         int generation = ++systemTtsGeneration;
         final TextToSpeech[] holder = new TextToSpeech[1];
-        holder[0] = new TextToSpeech(getContext(), status -> {
+        TextToSpeech.OnInitListener listener = status -> {
             if (generation != systemTtsGeneration) {
                 if (holder[0] != null) holder[0].shutdown();
                 return;
@@ -299,7 +303,10 @@ public class PocketTtsPlugin extends Plugin {
             });
             systemTtsReady = true;
             speakNow(call, text, speed);
-        }, packageName);
+        };
+        holder[0] = packageName.isEmpty()
+                ? new TextToSpeech(getContext(), listener)
+                : new TextToSpeech(getContext(), listener, packageName);
     }
 
     private void speakNow(PluginCall call, String text, float speed) {
@@ -339,6 +346,7 @@ public class PocketTtsPlugin extends Plugin {
     public void speak(PluginCall call) {
         String text = call.getString("text", "").trim();
         float speed = call.getFloat("speed", 1.0f);
+        int sid = call.getInt("sid", 1);
         if (text.isEmpty()) {
             call.reject("没有可朗读的单词");
             return;
@@ -347,7 +355,7 @@ public class PocketTtsPlugin extends Plugin {
             call.reject("MODEL_NOT_INSTALLED");
             return;
         }
-        final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
+        final float safeSpeed = Math.max(0.5f, Math.min(2.0f, speed));
         final int requestId = pocketSpeakGeneration.incrementAndGet();
         speechWorker.getQueue().clear();
         speechWorker.execute(() -> {
@@ -375,7 +383,7 @@ public class PocketTtsPlugin extends Plugin {
                         AudioManager.AUDIO_SESSION_ID_GENERATE
                 );
                 GenerationConfig config = new GenerationConfig();
-                config.setSid(1);
+                config.setSid(Math.max(0, Math.min(7, sid)));
                 config.setSpeed(safeSpeed);
                 config.setSilenceScale(0.15f);
 
