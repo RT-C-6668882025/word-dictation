@@ -1,5 +1,7 @@
 package com.rtc.worddictation;
 
+import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
