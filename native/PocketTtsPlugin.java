@@ -38,6 +38,7 @@ import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Locale;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -181,44 +182,61 @@ public class PocketTtsPlugin extends Plugin {
         if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
         final float safeSpeed = Math.max(0.7f, Math.min(1.35f, speed));
         getActivity().runOnUiThread(() -> {
-            final TextToSpeech[] holder = new TextToSpeech[1];
-            holder[0] = new TextToSpeech(getContext(), status -> {
-                TextToSpeech engine = holder[0];
-                if (status != TextToSpeech.SUCCESS || engine == null) {
-                    if (engine != null) engine.shutdown();
-                    call.reject("系统语音初始化失败");
-                    return;
-                }
-                int lang = engine.setLanguage(Locale.US);
-                if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+            TextToSpeech probe = new TextToSpeech(getContext(), status -> {});
+            List<TextToSpeech.EngineInfo> engines = probe.getEngines();
+            probe.shutdown();
+            if (engines == null || engines.isEmpty()) {
+                call.reject("系统没有可用的语音引擎");
+                return;
+            }
+            speakWithSystemEngine(call, text, safeSpeed, engines, 0);
+        });
+    }
+
+    private void speakWithSystemEngine(PluginCall call, String text, float speed,
+                                       List<TextToSpeech.EngineInfo> engines, int index) {
+        if (index >= engines.size()) {
+            call.reject("系统语音引擎均无法使用英语");
+            return;
+        }
+        String packageName = engines.get(index).name;
+        final TextToSpeech[] holder = new TextToSpeech[1];
+        holder[0] = new TextToSpeech(getContext(), status -> {
+            TextToSpeech engine = holder[0];
+            if (status != TextToSpeech.SUCCESS || engine == null) {
+                if (engine != null) engine.shutdown();
+                speakWithSystemEngine(call, text, speed, engines, index + 1);
+                return;
+            }
+            int lang = engine.setLanguage(Locale.US);
+            if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+                engine.shutdown();
+                speakWithSystemEngine(call, text, speed, engines, index + 1);
+                return;
+            }
+            engine.setSpeechRate(speed);
+            String id = "wd-" + UUID.randomUUID();
+            engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String utteranceId) {}
+                @Override public void onDone(String utteranceId) {
                     engine.shutdown();
-                    call.reject("系统缺少英语语音");
-                    return;
+                    call.resolve();
                 }
-                engine.setSpeechRate(safeSpeed);
-                String id = "wd-" + UUID.randomUUID();
-                engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String utteranceId) {}
-                    @Override public void onDone(String utteranceId) {
-                        engine.shutdown();
-                        call.resolve();
-                    }
-                    @Override public void onError(String utteranceId) {
-                        engine.shutdown();
-                        call.reject("系统语音播放失败");
-                    }
-                    @Override public void onError(String utteranceId, int errorCode) {
-                        engine.shutdown();
-                        call.reject("系统语音播放失败：" + errorCode);
-                    }
-                });
-                int result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
-                if (result == TextToSpeech.ERROR) {
+                @Override public void onError(String utteranceId) {
                     engine.shutdown();
-                    call.reject("系统语音启动失败");
+                    call.reject("系统语音播放失败：" + packageName);
+                }
+                @Override public void onError(String utteranceId, int errorCode) {
+                    engine.shutdown();
+                    call.reject("系统语音播放失败：" + packageName + " · " + errorCode);
                 }
             });
-        });
+            int result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
+            if (result == TextToSpeech.ERROR) {
+                engine.shutdown();
+                speakWithSystemEngine(call, text, speed, engines, index + 1);
+            }
+        }, packageName);
     }
 
     @PluginMethod
