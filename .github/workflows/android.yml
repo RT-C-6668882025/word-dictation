@@ -32,6 +32,14 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Configure Android app version
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          VERSION_CODE="$(node -e "const [a,b,c]=require('./package.json').version.split('.').map(Number); process.stdout.write(String(a*10000+b*100+c))")"
+          sed -i -E "s/versionCode [0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
+          sed -i -E "s/versionName \"[^\"]+\"/versionName \"${VERSION}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
       - name: Install Pocket TTS Android bridge
         run: |
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
@@ -106,6 +114,15 @@ jobs:
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/release/app-release.apk word-dictation.apk
+
+      - name: Verify APK identity and version
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
+          BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
+          echo "$BADGING"
+          echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
+          echo "$BADGING" | grep -F "versionCode='403'"
+          echo "$BADGING" | grep -F "versionName='0.4.3'"
 
       - name: Verify permanent APK signature
         env:
