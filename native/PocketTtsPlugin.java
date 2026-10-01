@@ -93,8 +93,40 @@ public class PocketTtsPlugin extends Plugin {
         worker.execute(() -> {
             File archive = new File(getContext().getCacheDir(), MODEL_NAME + ".tar.bz2");
             try {
-                String url = chooseSource(source);
-                download(url, archive);
+                String preferred = chooseSource(source);
+                String[] urls;
+                if ("auto".equals(source)) {
+                    urls = preferred.equals(CHINA_URL)
+                            ? new String[]{CHINA_URL, OFFICIAL_URL}
+                            : new String[]{OFFICIAL_URL, CHINA_URL};
+                } else {
+                    urls = new String[]{preferred};
+                }
+
+                String usedUrl = null;
+                Exception lastError = null;
+                for (String url : urls) {
+                    archive.delete();
+                    for (int attempt = 1; attempt <= 3; attempt++) {
+                        try {
+                            notifyDownloadState("正在连接", url, attempt);
+                            downloadResumable(url, archive);
+                            if (archive.length() < 50L * 1024 * 1024) {
+                                throw new Exception("下载内容异常（仅 " + (archive.length() / 1024 / 1024) + " MB）");
+                            }
+                            usedUrl = url;
+                            lastError = null;
+                            break;
+                        } catch (Exception e) {
+                            lastError = e;
+                            notifyDownloadState("连接失败，正在重试", url, attempt);
+                            try { Thread.sleep(1200L * attempt); } catch (InterruptedException ignored) {}
+                        }
+                    }
+                    if (usedUrl != null) break;
+                }
+                if (usedUrl == null) throw (lastError != null ? lastError : new Exception("所有下载源均不可用"));
+
                 File parent = modelParent();
                 if (!parent.exists() && !parent.mkdirs()) throw new Exception("无法创建模型目录");
                 extractTarBz2(archive, parent);
@@ -105,7 +137,7 @@ public class PocketTtsPlugin extends Plugin {
                 notifyListeners("downloadProgress", done);
                 JSObject ret = new JSObject();
                 ret.put("installed", true);
-                ret.put("source", url.startsWith("https://ghfast.top/") ? "cn" : "global");
+                ret.put("source", usedUrl.startsWith("https://ghfast.top/") ? "cn" : "global");
                 call.resolve(ret);
             } catch (Exception e) {
                 deleteRecursive(modelDir());
@@ -250,20 +282,42 @@ public class PocketTtsPlugin extends Plugin {
         return -1;
     }
 
-    private void download(String address, File dest) throws Exception {
+    private void notifyDownloadState(String state, String address, int attempt) {
+        JSObject p = new JSObject();
+        p.put("state", state);
+        p.put("source", address.startsWith("https://ghfast.top/") ? "cn" : "global");
+        p.put("attempt", attempt);
+        notifyListeners("downloadProgress", p);
+    }
+
+    private void downloadResumable(String address, File dest) throws Exception {
+        long existing = dest.exists() ? dest.length() : 0L;
         HttpURLConnection c = (HttpURLConnection) new URL(address).openConnection();
         c.setInstanceFollowRedirects(true);
-        c.setConnectTimeout(15000);
-        c.setReadTimeout(30000);
+        c.setConnectTimeout(30000);
+        c.setReadTimeout(120000);
         c.setRequestProperty("User-Agent", "Word-Dictation/0.4");
+        c.setRequestProperty("Accept", "application/octet-stream,*/*");
+        if (existing > 0) c.setRequestProperty("Range", "bytes=" + existing + "-");
         c.connect();
+
         int code = c.getResponseCode();
-        if (code < 200 || code >= 300) throw new Exception("HTTP " + code);
-        long total = c.getContentLengthLong();
-        long done = 0;
+        boolean append = existing > 0 && code == HttpURLConnection.HTTP_PARTIAL;
+        if (code < 200 || code >= 300) {
+            c.disconnect();
+            throw new Exception("HTTP " + code);
+        }
+        if (!append && existing > 0) {
+            existing = 0L;
+        }
+
+        long bodyLength = c.getContentLengthLong();
+        long total = bodyLength > 0 ? existing + bodyLength : -1L;
+        long done = existing;
         int lastProgress = -1;
+
         try (InputStream in = new BufferedInputStream(c.getInputStream());
-             BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(dest))) {
+             BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(dest, append))) {
             byte[] buf = new byte[128 * 1024];
             int n;
             while ((n = in.read(buf)) != -1) {
@@ -276,6 +330,7 @@ public class PocketTtsPlugin extends Plugin {
                     p.put("progress", progress);
                     p.put("downloaded", done);
                     p.put("total", total);
+                    p.put("source", address.startsWith("https://ghfast.top/") ? "cn" : "global");
                     notifyListeners("downloadProgress", p);
                 }
             }
