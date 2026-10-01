@@ -11,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.content.SharedPreferences;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -27,6 +28,24 @@ import java.util.concurrent.*;
 public class AppUpdaterPlugin extends Plugin {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private volatile boolean downloading = false;
+    private static final String DIAG_PREFS = "word_dictation_updater";
+    private void diag(String stage, String detail) {
+        getContext().getSharedPreferences(DIAG_PREFS, 0).edit()
+                .putString("stage", stage)
+                .putString("detail", detail == null ? "" : detail)
+                .putLong("time", System.currentTimeMillis())
+                .apply();
+    }
+
+    @PluginMethod
+    public void getUpdateDiagnostics(PluginCall call) {
+        SharedPreferences p = getContext().getSharedPreferences(DIAG_PREFS, 0);
+        JSObject out = new JSObject();
+        out.put("stage", p.getString("stage", ""));
+        out.put("detail", p.getString("detail", ""));
+        out.put("time", p.getLong("time", 0));
+        call.resolve(out);
+    }
 
     private File pendingApk() {
         File dir = new File(getContext().getFilesDir(), "updates");
@@ -38,6 +57,7 @@ public class AppUpdaterPlugin extends Plugin {
         File apk = pendingApk();
         if (!apk.isFile()) return false;
         try {
+            diag("retry_validate", "验证已下载 APK");
             validateApk(apk, "");
             return true;
         } catch (Exception e) {
@@ -69,12 +89,14 @@ public class AppUpdaterPlugin extends Plugin {
                 call.resolve(out);
                 return;
             }
+            diag("retry_install", "重新提交系统安装");
             installWithPackageInstaller(apk);
             JSObject out = new JSObject();
             out.put("pending", true);
             out.put("installer", "PackageInstaller.Session");
             call.resolve(out);
         } catch (Exception e) {
+            diag("retry_failed", e.getMessage());
             call.reject("继续安装失败：" + e.getMessage());
         }
     }
@@ -88,6 +110,7 @@ public class AppUpdaterPlugin extends Plugin {
             call.reject("不允许的更新地址"); return;
         }
         downloading = true;
+        diag("start", "开始更新");
         worker.execute(() -> {
             File apk = pendingApk();
             Exception last = null;
@@ -96,7 +119,9 @@ public class AppUpdaterPlugin extends Plugin {
                 boolean ok = false;
                 if (apk.isFile()) {
                     try {
+                        diag("cached_validate", "发现本地待安装 APK");
                         validateApk(apk, expectedDigest);
+                        diag("cached_ready", "复用已下载 APK");
                         emit("已下载，准备安装", 100, "");
                         ok = true;
                     } catch (Exception ignored) {
@@ -107,12 +132,16 @@ public class AppUpdaterPlugin extends Plugin {
                     for (String candidate : urls) {
                         try {
                             if (apk.exists()) apk.delete();
+                            diag("download", sourceName(candidate));
                             emit("正在下载", 0, sourceName(candidate));
                             download(candidate, apk);
+                            diag("validate", sourceName(candidate));
                             validateApk(apk, expectedDigest);
+                            diag("ready", sourceName(candidate));
                             ok = true; break;
                         } catch (Exception e) {
                             last = e;
+                            diag("source_failed", sourceName(candidate) + " · " + e.getMessage());
                             emit("切换下载源", 0, sourceName(candidate));
                         }
                     }
@@ -123,6 +152,7 @@ public class AppUpdaterPlugin extends Plugin {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
                             Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+                            diag("permission", "等待允许安装未知应用");
                             getActivity().startActivity(settings);
                             JSObject out = new JSObject();
                             out.put("downloaded", true);
@@ -131,15 +161,17 @@ public class AppUpdaterPlugin extends Plugin {
                             call.resolve(out);
                             return;
                         }
+                        diag("session", "提交 PackageInstaller.Session");
                         installWithPackageInstaller(apk);
+                        diag("system_confirm", "等待系统安装确认");
                         JSObject out = new JSObject();
                         out.put("downloaded", true);
                         out.put("installer", "PackageInstaller.Session");
                         out.put("pending", true);
                         call.resolve(out);
-                    } catch (Exception e) { call.reject("启动安装失败：" + e.getMessage()); }
+                    } catch (Exception e) { diag("install_launch_failed", e.getMessage()); call.reject("启动安装失败：" + e.getMessage()); }
                 });
-            } catch (Exception e) { call.reject("更新下载失败：" + e.getMessage()); }
+            } catch (Exception e) { diag("update_failed", e.getMessage()); call.reject("更新下载失败：" + e.getMessage()); }
             finally { downloading = false; }
         });
     }
