@@ -230,6 +230,9 @@ public class PocketTtsPlugin extends Plugin {
                 call.reject("朗读失败：" + e.getMessage());
             } finally {
                 if (track != null) track.release();
+                // sherpa-onnx Android has had native crashes when reusing one OfflineTts
+                // instance across sequential generations. Recreate per utterance for stability.
+                releaseTts();
             }
         });
     }
