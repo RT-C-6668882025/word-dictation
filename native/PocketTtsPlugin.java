@@ -11,6 +11,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.k2fsa.sherpa.onnx.GenerationConfig;
+import com.k2fsa.sherpa.onnx.GeneratedAudio;
 import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
@@ -205,9 +206,6 @@ public class PocketTtsPlugin extends Plugin {
                         AudioTrack.MODE_STREAM,
                         AudioManager.AUDIO_SESSION_ID_GENERATE
                 );
-                final AudioTrack out = track;
-                out.play();
-
                 WaveData wave = WaveReader.Companion.readWave(new File(modelDir(), "test_wavs/bria.wav").getAbsolutePath());
                 GenerationConfig config = new GenerationConfig();
                 config.setReferenceAudio(wave.getSamples());
@@ -220,11 +218,25 @@ public class PocketTtsPlugin extends Plugin {
                 extra.put("seed", "42");
                 config.setExtra(extra);
 
-                tts.generateWithConfigAndCallback(text, config, samples -> {
-                    out.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
-                    return 1;
-                });
-                out.stop();
+                // Avoid generateWithConfigAndCallback(): sherpa-onnx has a known
+                // Android JNI callback threading crash. Words are short, so render
+                // the complete clip first and then play it.
+                GeneratedAudio audio = tts.generateWithConfig(text, config);
+                if (audio == null || audio.getSamples() == null || audio.getSamples().length == 0) {
+                    throw new Exception("没有生成音频");
+                }
+                if (audio.getSampleRate() != sampleRate) {
+                    throw new Exception("音频采样率异常：" + audio.getSampleRate());
+                }
+                track.play();
+                float[] samples = audio.getSamples();
+                int offset = 0;
+                while (offset < samples.length) {
+                    int written = track.write(samples, offset, samples.length - offset, AudioTrack.WRITE_BLOCKING);
+                    if (written < 0) throw new Exception("音频播放失败：" + written);
+                    offset += written;
+                }
+                track.stop();
                 call.resolve();
             } catch (Exception e) {
                 call.reject("朗读失败：" + e.getMessage());
