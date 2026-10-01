@@ -147,8 +147,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='404'"
-          echo "$BADGING" | grep -F "versionName='0.4.4'"
+          echo "$BADGING" | grep -F "versionCode='405'"
+          echo "$BADGING" | grep -F "versionName='0.4.5'"
 
       - name: Verify permanent APK signature
         env:
