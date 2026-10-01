@@ -25,7 +25,19 @@ function rowsToWords(rows:unknown[][]):ParsedWord[]{
  }return out;
 }
 function mdRow(line:string){const s=line.trim().replace(/^\|/,'').replace(/\|$/,'');const out:string[]=[];let cur='',esc=false;for(const ch of s){if(esc){cur+=ch;esc=false}else if(ch==='\\'){esc=true}else if(ch==='|'){out.push(cur.trim());cur=''}else cur+=ch}out.push(cur.trim());return out}
+function dictionaryLine(line:string){
+ let s=line.trim().replace(/^[-*+]\s+/,'').replace(/^\d+[.)、]?\s*/,'').trim();
+ const i=s.search(HAN);if(i<=0)return null;
+ let left=s.slice(0,i).trim(),zh=s.slice(i).trim();if(!LATIN.test(left)||!zh)return null;
+ let en='';
+ const phonetic=left.indexOf('[');
+ if(phonetic>=0)en=left.slice(0,phonetic).trim();
+ else en=left.replace(/\s+(?:(?:n|v|vt|vi|a|ad|adj|adv|prep|pron|conj|num|int|det|aux|art)\.?|modal\s+verb\.?)(?:\s*&\s*(?:n|v|a|ad|adj|adv)\.?)?\s*$/i,'').trim();
+ if(!en||!LATIN.test(en)||HAN.test(en)||/^(lesson|qq|http|https|www)\b/i.test(en))return null;
+ return word(en,zh);
+}
 function loose(line:string){
+ const dict=dictionaryLine(line);if(dict)return dict;
  let s=line.trim().replace(/^[-*+]\s+/,'').replace(/^\d+[.)、]\s*/,'').trim();if(!s||/^#{1,6}\s/.test(s)||/^\`\`\`/.test(s))return null;
  if(s.includes('|')){const c=mdRow(s);if(c.length>=2&&!separator(c)){const w=word(c[0],c.slice(1).join('；'));if(w)return w}}
  const e=s.match(/^(.+?)\s*(?:<>|=>|→|：|:\s+|\s+[—–-]\s+)\s*(.+)$/);if(e){const w=word(e[1],e[2]);if(w)return w}
