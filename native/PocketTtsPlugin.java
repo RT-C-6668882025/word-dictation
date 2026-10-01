@@ -21,7 +21,7 @@ import com.k2fsa.sherpa.onnx.GeneratedAudio;
 import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
-import com.k2fsa.sherpa.onnx.OfflineTtsPocketModelConfig;
+import com.k2fsa.sherpa.onnx.OfflineTtsKittenModelConfig;
 import com.k2fsa.sherpa.onnx.WaveReader;
 import com.k2fsa.sherpa.onnx.WaveData;
 
@@ -60,13 +60,14 @@ public class PocketTtsPlugin extends Plugin {
     private PluginCall activeSystemCall;
     private String activeUtteranceId = "";
 
-    private static final String MODEL_NAME = "sherpa-onnx-pocket-tts-int8-2026-01-26";
+    private static final String MODEL_NAME = "kitten-micro-en-v0_8";
+    private static final String LEGACY_MODEL_NAME = "sherpa-onnx-pocket-tts-int8-2026-01-26";
     private static final String OFFICIAL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" + MODEL_NAME + ".tar.bz2";
     private static final String GHFAST_URL = "https://ghfast.top/" + OFFICIAL_URL;
     private static final String GHPROXY_NET_URL = "https://ghproxy.net/" + OFFICIAL_URL;
     private static final String GITHUBPROXY_CC_URL = "https://githubproxy.cc/" + OFFICIAL_URL;
-    private static final String MODEL_SHA256 = "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb";
+    private static final String MODEL_SHA256 = "85faaea7511ca9d1d2f251fed0a4553bdf0d1ee046102fa60ddd8046c751f76f";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ThreadPoolExecutor speechWorker = new ThreadPoolExecutor(
@@ -86,14 +87,10 @@ public class PocketTtsPlugin extends Plugin {
 
     private boolean installed() {
         File d = modelDir();
-        return new File(d, "lm_flow.int8.onnx").isFile()
-                && new File(d, "lm_main.int8.onnx").isFile()
-                && new File(d, "encoder.onnx").isFile()
-                && new File(d, "decoder.int8.onnx").isFile()
-                && new File(d, "text_conditioner.onnx").isFile()
-                && new File(d, "vocab.json").isFile()
-                && new File(d, "token_scores.json").isFile()
-                && new File(d, "test_wavs/bria.wav").isFile();
+        return new File(d, "model.onnx").isFile()
+                && new File(d, "voices.bin").isFile()
+                && new File(d, "tokens.txt").isFile()
+                && new File(d, "espeak-ng-data").isDirectory();
     }
 
     @PluginMethod
@@ -101,9 +98,9 @@ public class PocketTtsPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("installed", installed());
         ret.put("downloading", downloading);
-        ret.put("model", "Pocket TTS INT8");
-        ret.put("downloadMB", 98);
-        ret.put("diskMB", 190);
+        ret.put("model", "KittenTTS Micro v0.8");
+        ret.put("downloadMB", 42);
+        ret.put("diskMB", 60);
         call.resolve(ret);
     }
 
@@ -132,7 +129,7 @@ public class PocketTtsPlugin extends Plugin {
                         try {
                             notifyDownloadState("正在连接 " + sourceName(url), url, attempt);
                             downloadResumable(url, archive);
-                            if (archive.length() != 98336520L) {
+                            if (archive.length() != 44423643L) {
                                 throw new Exception("文件大小异常：" + archive.length());
                             }
                             notifyDownloadState("正在校验模型", url, attempt);
@@ -165,6 +162,8 @@ public class PocketTtsPlugin extends Plugin {
                 if (!parent.exists() && !parent.mkdirs()) throw new Exception("无法创建模型目录");
                 extractTarBz2(archive, parent);
                 if (!installed()) throw new Exception("模型文件不完整");
+                File legacy = new File(modelParent(), LEGACY_MODEL_NAME);
+                if (legacy.exists()) deleteRecursive(legacy);
                 JSObject done = new JSObject();
                 done.put("progress", 100);
                 done.put("installed", true);
@@ -375,17 +374,10 @@ public class PocketTtsPlugin extends Plugin {
                         AudioTrack.MODE_STREAM,
                         AudioManager.AUDIO_SESSION_ID_GENERATE
                 );
-                WaveData wave = WaveReader.Companion.readWave(new File(modelDir(), "test_wavs/bria.wav").getAbsolutePath());
                 GenerationConfig config = new GenerationConfig();
-                config.setReferenceAudio(wave.getSamples());
-                config.setReferenceSampleRate(wave.getSampleRate());
-                config.setNumSteps(2);
+                config.setSid(1);
                 config.setSpeed(safeSpeed);
-                Map<String, String> extra = new HashMap<>();
-                extra.put("temperature", "0.7");
-                extra.put("chunk_size", "15");
-                extra.put("seed", "42");
-                config.setExtra(extra);
+                config.setSilenceScale(0.15f);
 
                 // Avoid generateWithConfigAndCallback(): sherpa-onnx has a known
                 // Android JNI callback threading crash. Words are short, so render
@@ -405,7 +397,9 @@ public class PocketTtsPlugin extends Plugin {
                 float[] samples = audio.getSamples();
                 int offset = 0;
                 while (offset < samples.length) {
-                    int written = track.write(samples, offset, samples.length - offset, AudioTrack.WRITE_BLOCKING);
+                    if (requestId != pocketSpeakGeneration.get()) break;
+                    int chunk = Math.min(4096, samples.length - offset);
+                    int written = track.write(samples, offset, chunk, AudioTrack.WRITE_BLOCKING);
                     if (written < 0) throw new Exception("音频播放失败：" + written);
                     offset += written;
                 }
@@ -415,9 +409,7 @@ public class PocketTtsPlugin extends Plugin {
                 call.reject("朗读失败：" + e.getMessage());
             } finally {
                 if (track != null) track.release();
-                // sherpa-onnx Android has had native crashes when reusing one OfflineTts
-                // instance across sequential generations. Recreate per utterance for stability.
-                releaseTts();
+                // Keep KittenTTS warm so the next word avoids model initialization.
             }
         });
     }
@@ -425,21 +417,18 @@ public class PocketTtsPlugin extends Plugin {
     private synchronized void ensureTts() {
         if (tts != null) return;
         File d = modelDir();
-        OfflineTtsPocketModelConfig pocket = new OfflineTtsPocketModelConfig();
-        pocket.setLmFlow(new File(d, "lm_flow.int8.onnx").getAbsolutePath());
-        pocket.setLmMain(new File(d, "lm_main.int8.onnx").getAbsolutePath());
-        pocket.setEncoder(new File(d, "encoder.onnx").getAbsolutePath());
-        pocket.setDecoder(new File(d, "decoder.int8.onnx").getAbsolutePath());
-        pocket.setTextConditioner(new File(d, "text_conditioner.onnx").getAbsolutePath());
-        pocket.setVocabJson(new File(d, "vocab.json").getAbsolutePath());
-        pocket.setTokenScoresJson(new File(d, "token_scores.json").getAbsolutePath());
-        pocket.setVoiceEmbeddingCacheCapacity(4);
+        OfflineTtsKittenModelConfig kitten = new OfflineTtsKittenModelConfig();
+        kitten.setModel(new File(d, "model.onnx").getAbsolutePath());
+        kitten.setVoices(new File(d, "voices.bin").getAbsolutePath());
+        kitten.setTokens(new File(d, "tokens.txt").getAbsolutePath());
+        kitten.setDataDir(new File(d, "espeak-ng-data").getAbsolutePath());
         OfflineTtsModelConfig model = new OfflineTtsModelConfig();
-        model.setPocket(pocket);
+        model.setKitten(kitten);
         model.setNumThreads(2);
         model.setDebug(false);
         OfflineTtsConfig config = new OfflineTtsConfig();
         config.setModel(model);
+        config.setMaxNumSentences(1);
         tts = new OfflineTts(null, config);
     }
 
