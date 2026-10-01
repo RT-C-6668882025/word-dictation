@@ -32,6 +32,27 @@ jobs:
       - name: Sync web assets
         run: npx cap sync android
 
+      - name: Install Pocket TTS Android bridge
+        run: |
+          cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
+          cp native/MainActivity.java android/app/src/main/java/com/rtc/worddictation/MainActivity.java
+          sed -i '/mavenCentral()/a\\        maven { url "https://jitpack.io" }' android/settings.gradle
+          cat >> android/app/build.gradle <<'EOF'
+
+          dependencies {
+              implementation 'com.github.k2-fsa:sherpa-onnx:v1.13.8'
+              implementation 'org.apache.commons:commons-compress:1.27.1'
+          }
+
+          android {
+              defaultConfig {
+                  ndk {
+                      abiFilters 'arm64-v8a'
+                  }
+              }
+          }
+          EOF
+
       - name: Restore permanent signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
