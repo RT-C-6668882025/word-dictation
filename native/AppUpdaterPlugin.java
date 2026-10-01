@@ -1,9 +1,11 @@
 package com.rtc.worddictation;
 
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -16,6 +18,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.*;
 import java.net.*;
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.concurrent.*;
 
 @CapacitorPlugin(name = "AppUpdater")
@@ -63,7 +66,36 @@ public class AppUpdaterPlugin extends Plugin {
                         Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".updater", apk);
                         Intent intent = new Intent(Intent.ACTION_VIEW);
                         intent.setDataAndType(uri, "application/vnd.android.package-archive");
+                        intent.setClipData(ClipData.newRawUri("word-dictation-update", uri));
                         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                        // Some Xiaomi/HyperOS package installers do not preserve the
+                        // transient grant from ACTION_VIEW reliably. Grant every APK
+                        // installer that can resolve this intent explicit read access.
+                        PackageManager pm = getContext().getPackageManager();
+                        List<ResolveInfo> handlers = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+                        for (ResolveInfo handler : handlers) {
+                            if (handler.activityInfo != null && handler.activityInfo.packageName != null) {
+                                getContext().grantUriPermission(
+                                        handler.activityInfo.packageName,
+                                        uri,
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                );
+                            }
+                        }
+                        // Known installer package names are attempted as a second layer;
+                        // nonexistent packages are harmless and simply ignored.
+                        String[] knownInstallers = {
+                                "com.miui.packageinstaller",
+                                "com.google.android.packageinstaller",
+                                "com.android.packageinstaller"
+                        };
+                        for (String installer : knownInstallers) {
+                            try {
+                                getContext().grantUriPermission(installer, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Exception ignored) {}
+                        }
+
                         getActivity().startActivity(intent);
                         JSObject out = new JSObject(); out.put("downloaded", true); call.resolve(out);
                     } catch (Exception e) { call.reject("启动安装失败：" + e.getMessage()); }
