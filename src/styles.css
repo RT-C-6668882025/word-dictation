@@ -11,3 +11,16 @@
 
 /* v0.4.12 word rhythm */
 .card{gap:12px}.word{grid-template-columns:minmax(150px,1.08fr) minmax(0,.92fr);gap:14px}.englishCell{overflow:visible}.answer{overflow-wrap:break-word;word-break:normal}@media(max-width:900px) and (min-width:701px){.word{grid-template-columns:minmax(125px,1.1fr) minmax(0,.9fr)}.word strong{font-size:clamp(16px,1.7vw,20px)}.need{min-width:64px;padding-left:8px;padding-right:8px}}
+
+/* searchable word index */
+.wordIndex{padding:22px 0 110px;max-width:980px;margin:0 auto}
+.indexSearch{position:sticky;top:76px;z-index:8;display:flex;align-items:center;gap:14px;padding:12px 0 16px;background:var(--bg,#f7f7f5)}
+.indexSearch input{flex:1;min-width:0;height:48px;border:1px solid #d7d7d2;border-radius:14px;background:#fff;padding:0 16px;font:inherit;font-size:16px;outline:none}
+.indexSearch input:focus{border-color:#777}
+.indexSearch span{font-size:13px;color:#888;white-space:nowrap}
+.indexList{border:1px solid #ddd;border-radius:16px;overflow:hidden;background:#fff}
+.indexRow{width:100%;display:grid;grid-template-columns:58px minmax(150px,.9fr) minmax(180px,1.35fr) 90px;align-items:center;gap:16px;min-height:58px;padding:10px 16px;border:0;border-bottom:1px solid #ecece8;background:#fff;text-align:left;border-radius:0}
+.indexRow:last-child{border-bottom:0}.indexRow:active{background:#f3f3f0}
+.indexRow .indexNo{font-variant-numeric:tabular-nums;color:#aaa;font-size:12px}.indexRow strong{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.indexRow>span:nth-of-type(2){font-size:14px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.indexRow small{text-align:right;color:#999;white-space:nowrap}
+.indexEmpty{text-align:center;color:#999;padding:64px 0}
+@media(max-width:700px){.wordIndex{padding:14px 12px 100px}.indexSearch{top:64px}.indexRow{grid-template-columns:42px minmax(105px,.85fr) minmax(110px,1.15fr);gap:10px;padding:10px 12px}.indexRow small{display:none}.indexRow strong{font-size:16px}}
