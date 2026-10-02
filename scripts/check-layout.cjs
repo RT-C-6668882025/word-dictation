@@ -18,7 +18,14 @@ const fs=require('node:fs');
   const bounds=async(selector)=>page.locator(selector).evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,width:r.width}}));
   const contained=async(selector,width)=>{const rs=await bounds(selector);assert(rs.length);assert(rs.every(r=>r.left>=-1&&r.right<=width+1),selector+' outside viewport '+width)};
   for(const width of [360,600,800,1024,1280,1600]){
-   await page.setViewportSize({width,height:1000});await page.reload();await page.locator('.book').waitFor();
+   await page.setViewportSize({width,height:1000});
+   await page.evaluate(()=>localStorage.clear());await page.reload();
+   await page.locator('#bookName').fill('新建词库测试'.repeat(80));
+   await page.locator('#pageSize').fill('20');
+   await page.locator('#raw').fill(words.map(w=>w.en+','+w.zh).join('\n'));
+   await page.getByRole('button',{name:'创建词库',exact:true}).click();
+   await page.locator('.word').first().waitFor();
+   await page.locator('.homeBtn').click();await page.locator('.book').waitFor();
    await contained('.book,.bookInfo strong,.bookRight button',width);
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'library overflow');
    await page.locator('.book').click();
