@@ -65,3 +65,13 @@ header>.headerTitle>span{display:block;max-width:100%;white-space:normal;overflo
  footer{flex-wrap:wrap;align-items:center}
  .footerLeft,.nextSizes{min-width:0;flex-wrap:wrap}
 }
+
+/* Give each card enough readable width before splitting the list into columns. */
+.grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.word strong{overflow-wrap:break-word;word-break:normal}
+.word .answer{overflow-wrap:break-word;word-break:normal}
+@media(max-width:600px){
+ .word,.word.view-zh,.word.view-en,.word.view-both{grid-template-columns:minmax(0,1fr);gap:8px}
+ .word .answer{text-align:left}
+ .word .englishCell{width:100%}
+}

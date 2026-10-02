@@ -11,7 +11,7 @@ const fs=require('node:fs');
   const page=await browser.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173');
-  const words=Array.from({length:30},(_,i)=>({id:'w'+i,en:i%3===0?'ability':i%3===1?'take responsibility for something':'A'.repeat(120),zh:i%3===0?'能力':i%3===1?'承担某事的责任；扩展释义'.repeat(5):'中文'.repeat(60)}));
+  const words=Array.from({length:30},(_,i)=>({id:'w'+i,en:i%3===0?'business':i%3===1?'central':i%2?'take responsibility for something':'A'.repeat(120),zh:i%3===0?'能力':i%3===1?'承担某事的责任；扩展释义'.repeat(5):'中文'.repeat(60)}));
   await page.evaluate(words=>localStorage.setItem('wd_books_v2',JSON.stringify([{id:'test',name:'新概念英语第一册单词汇总打印版'.repeat(40)+'A'.repeat(400),pageSize:20,words,whitelist:{'0':words.slice(0,20).map(w=>w.id),'1':words.slice(20).map(w=>w.id)}}])),words);
   let checks=0;
   fs.mkdirSync('layout-checks',{recursive:true});
@@ -41,6 +41,8 @@ const fs=require('node:fs');
     assert(visibility.every(([en,zh])=>en===(mode==='zh'?'hidden':'visible')&&zh===(mode==='en'?'hidden':'visible')),'incorrect language visibility');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'study overflow');
     await contained('.card,.need',width);
+    const intact=await page.locator('.word strong').evaluateAll(els=>els.filter(e=>/^(business|central)\\b/.test(e.textContent)).every(e=>{const token=e.textContent.split(' ')[0];const range=document.createRange();range.setStart(e.firstChild,0);range.setEnd(e.firstChild,token.length);return range.getClientRects().length===1}));
+    assert(intact,'ordinary English word split at '+width+'/'+mode);
     checks++;
     if(width===800)await page.screenshot({path:'layout-checks/study-'+mode+'.png',fullPage:true});
    }
