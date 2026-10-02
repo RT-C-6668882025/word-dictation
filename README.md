@@ -8,7 +8,7 @@
 
 **导入单词 → 显示中文或英文 → 在纸上默写 → 标记已经会的 → 下一批。**
 
-[下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/download/latest/word-dictation.apk) · [在线使用](https://rt-c-6668882025.github.io/word-dictation/)
+[下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk) · [在线使用](https://rt-c-6668882025.github.io/word-dictation/)
 
 </div>
 
@@ -30,9 +30,9 @@
 
 支持直接粘贴，也支持：
 
-`TXT` · `CSV` · `TSV` · `Markdown` · `Excel`
+`TXT` · `CSV` · `TSV` · `Markdown` · `Excel` · `DOC` · `DOCX` · `PDF`
 
-例如：
+常见的中英词表可以直接识别，例如：
 
 ```text
 abandon,放弃
@@ -41,21 +41,50 @@ absent | 缺席的
 absolute <> 绝对的
 ```
 
+也支持带序号、词性、音标和扩展释义的词表。导入后会自动整理并去重。
+
+## 单词索引
+
+每个词库都有独立索引。
+
+- 按原词库顺序查看全部单词
+- 同时搜索英文和中文
+- 显示原序号与所在页
+- 点击结果直接定位到对应单词
+
+## 语音
+
+Android 版支持可选发音，不使用语音也不影响默写。
+
+- 系统语音
+- KittenTTS 离线语音
+- 8 个离线音色
+- 多档语速
+- 离线模型按需下载
+- 下载源自动切换
+
 ## 特点
 
 - 多词库
 - 固定分页
 - 词库重命名
+- 单词索引与中英文搜索
 - 每页独立白名单
-- 单个词独立切换中 / 英 / 全部
+- 单个词独立切换中文 / 英文 / 全部
 - 10–50 批量显示 + 自定义数量
+- 中文、英文长词组自适应排版
+- 平板横屏适配
+- Android 返回键与横滑返回
 - 本地保存，无账号，无后端
 - Android APK
 - App 内检查更新
+- 更新包校验与断点式继续安装
 
 ## 数据
 
 所有词库默认只保存在你的设备本地。
+
+正常 App 更新不会清空词库。
 
 > 清除应用数据或卸载 App 可能删除本地词库，请保留原始词库文件。
 
