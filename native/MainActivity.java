@@ -28,7 +28,7 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                if (!url.startsWith(getBridge().getServerUrl())) return;
+                if (!"localhost".equals(android.net.Uri.parse(url).getHost())) return;
                 try (InputStream in = getAssets().open("clear-web-cache.js")) {
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     byte[] buffer = new byte[4096];
