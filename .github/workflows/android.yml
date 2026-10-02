@@ -27,6 +27,16 @@ jobs:
         env:
           BUILD_TARGET: android
           VITE_COMMIT_SHA: ${{ github.sha }}
+      - name: Verify layout in Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node scripts/check-layout.cjs
+      - name: Upload layout screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-checks
+          path: layout-checks/
       - name: Create Android project
         run: npx cap add android
       - name: Sync web assets
@@ -156,8 +166,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='418'"
-          echo "$BADGING" | grep -F "versionName='0.4.18'"
+          echo "$BADGING" | grep -F "versionCode='419'"
+          echo "$BADGING" | grep -F "versionName='0.4.19'"
 
       - name: Verify permanent APK signature
         env:
@@ -181,9 +191,10 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 统一中文、英文、全部三种排版，清理重复叠加的旧样式
-          - 中文与英文使用单栏居中，全部使用中英双栏
-          - 小版本更新，支持应用内检测与覆盖安装"
+          - 修复超长词库名撑开首页、学习页和索引页的问题
+          - 中文和英文单独显示时统一居中，发音按钮不再挤偏英文
+          - 隐藏的语言不再占位，单词点按与整批切换使用相同结构
+          - 新增实际页面横竖屏回归检查，验证超长名称和按钮可点击"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
