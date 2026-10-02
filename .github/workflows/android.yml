@@ -31,6 +31,7 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
+          node scripts/check-native-cache.cjs
           node scripts/check-layout.cjs
       - name: Upload layout screenshots
         uses: actions/upload-artifact@v4
@@ -55,6 +56,7 @@ jobs:
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
           cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
           cp native/InstallResultActivity.java android/app/src/main/java/com/rtc/worddictation/InstallResultActivity.java
+          cp native/clear-web-cache.js android/app/src/main/assets/clear-web-cache.js
           cp native/MainActivity.java android/app/src/main/java/com/rtc/worddictation/MainActivity.java
           mkdir -p android/app/src/main/res/xml
           cat > android/app/src/main/res/xml/updater_paths.xml <<'EOF'
@@ -166,8 +168,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='420'"
-          echo "$BADGING" | grep -F "versionName='0.4.20'"
+          echo "$BADGING" | grep -F "versionCode='421'"
+          echo "$BADGING" | grep -F "versionName='0.4.21'"
 
       - name: Verify permanent APK signature
         env:
@@ -191,9 +193,10 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 中文、英文、全部统一固定双栏位置
-          - 点击单词或整批切换只改变可见内容，文字、发音按钮和行高不再跳动
-          - 回归检查逐项对比三种模式的文字坐标和尺寸"
+          - Android 版关闭网页离线缓存，避免覆盖安装后继续使用旧排版
+          - 启动时注销旧 Service Worker 并清理网页资源缓存
+          - 保留词库、白名单与离线语音
+          - 验证新建词库流程，以及模拟旧缓存后的页面迁移"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest

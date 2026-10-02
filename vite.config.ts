@@ -10,7 +10,7 @@ export default defineConfig(() => {
     base,
     plugins: [
       react(),
-      VitePWA({
+      ...(!android ? [VitePWA({
         registerType: 'autoUpdate',
         manifest: {
           name: 'Word Dictation',
@@ -21,7 +21,7 @@ export default defineConfig(() => {
           display: 'standalone',
           start_url: android ? './' : '/word-dictation/'
         }
-      })
+      })] : [])
     ]
   };
 });
