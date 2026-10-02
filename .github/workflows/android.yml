@@ -28,6 +28,8 @@ jobs:
           BUILD_TARGET: android
           VITE_COMMIT_SHA: ${{ github.sha }}
       - name: Verify layout in Chromium
+        env:
+          BUILD_TARGET: android
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
