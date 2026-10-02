@@ -22,7 +22,7 @@ const fs=require('node:fs');
    await page.evaluate(()=>localStorage.clear());await page.reload();
    await page.locator('#bookName').fill('新建词库测试'.repeat(80));
    await page.locator('#pageSize').fill('20');
-   await page.locator('#raw').fill(words.map(w=>w.en+','+w.zh).join('\n'));
+   await page.locator('#raw').fill(words.map((w,i)=>w.en+' '+String.fromCharCode(97+i)+','+w.zh).join('\n'));
    await page.getByRole('button',{name:'创建词库',exact:true}).click();
    await page.locator('.word').first().waitFor();
    await page.locator('.homeBtn').click();await page.locator('.book').waitFor();
