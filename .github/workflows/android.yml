@@ -156,8 +156,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='417'"
-          echo "$BADGING" | grep -F "versionName='0.4.17'"
+          echo "$BADGING" | grep -F "versionCode='418'"
+          echo "$BADGING" | grep -F "versionName='0.4.18'"
 
       - name: Verify permanent APK signature
         env:
@@ -181,12 +181,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 新增应用内更新：不再跳浏览器下载 APK
-          - App 内显示下载进度，并自动切换下载源
-          - 下载完成后直接唤起 Android 系统安装器
-          - 继续使用固定签名与递增 versionCode，覆盖更新保留词库
-          - 词库使用 localStorage + Android Preferences 双重持久化
-          - 更新 APK 下载后校验 SHA-256、包名、版本与固定签名\n          - 损坏下载自动切换下载源，不再交给系统安装器"
+          - 统一中文、英文、全部三种排版，清理重复叠加的旧样式
+          - 中文与英文使用单栏居中，全部使用中英双栏
+          - 小版本更新，支持应用内检测与覆盖安装"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
