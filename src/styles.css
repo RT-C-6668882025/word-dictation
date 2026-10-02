@@ -44,24 +44,18 @@ header>.headerTitle>span{display:block;max-width:100%;white-space:normal;overflo
 .studyNav,.navGroups,.countControl,.grid,.card{min-width:0;max-width:100%}
 .countControl{flex-wrap:wrap}
 
-/* Each single-language mode renders exactly one text node.
-   Reserve equal speaker space on both sides so English text stays centered. */
-.word{width:100%;position:relative;align-self:stretch;min-width:0;min-height:48px}
-.word.view-zh,.word.view-en{grid-template-columns:minmax(0,1fr);gap:0}
-.word.view-zh .answer{display:block;width:100%;text-align:center;white-space:normal;overflow-wrap:anywhere;line-height:1.45}
-.word.view-en .englishCell{display:block;position:relative;width:100%;padding:0 34px}
-.word.view-en strong{display:block;width:100%;text-align:center;white-space:normal;overflow-wrap:anywhere}
-.word.view-en .speaker{position:absolute;right:0;top:50%;transform:translateY(-50%)}
-.word.view-en .speaker:active{transform:translateY(-50%) scale(.92)}
-.word.view-both{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
-.word.view-both .englishCell{display:flex;min-width:0}
-.word.view-both strong{white-space:normal;overflow-wrap:anywhere}
-.word.view-both .answer{min-width:0;text-align:right;white-space:normal;overflow-wrap:anywhere}
+/* All three views share the same two slots; visibility never changes geometry. */
+.word,.word.view-zh,.word.view-en,.word.view-both{width:100%;position:relative;align-self:stretch;min-width:0;min-height:48px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.word .englishCell{display:flex;min-width:0;align-items:center;gap:7px}
+.word strong{display:block;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.word .answer{display:block;min-width:0;text-align:right;white-space:normal;overflow-wrap:anywhere;line-height:1.45}
+.word.view-zh .englishCell,.word.view-en .answer{visibility:hidden;pointer-events:none}
+.word .speaker{position:static;flex:none}
 .indexRow{min-width:0;grid-template-columns:42px minmax(0,.9fr) minmax(0,1.35fr) 80px}
 @media(max-width:1050px){
  header{grid-template-columns:minmax(0,1fr)}
  .headerActions{justify-content:flex-start;width:100%}
- .word.view-zh .answer,.word.view-en strong{font-size:18px}
+ .word .answer,.word strong{font-size:18px}
 }
 @media(max-width:700px){
  .book{flex-direction:column;align-items:stretch;gap:10px}

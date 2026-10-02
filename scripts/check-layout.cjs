@@ -23,23 +23,23 @@ const fs=require('node:fs');
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'library overflow');
    await page.locator('.book').click();
    await contained('.headerActions button',width);
+   const geometry=()=>page.locator('.word').evaluateAll(els=>els.map(e=>[e,e.querySelector('.englishCell'),e.querySelector('strong'),e.querySelector('.answer'),e.querySelector('.speaker')].map(node=>{const r=node.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})));
+   await page.locator('.seg button').nth(2).click();
+   const baseline=await geometry();
    for(const mode of ['zh','en','both']){
     await page.locator('.seg button').nth(['zh','en','both'].indexOf(mode)).click();
     await page.waitForFunction(mode=>[...document.querySelectorAll('.word')].every(e=>e.classList.contains('view-'+mode)),mode);
+    assert.deepEqual(await geometry(),baseline,'bulk switch moved text at '+width+'/'+mode);
+    const visibility=await page.locator('.word').evaluateAll(els=>els.map(e=>[getComputedStyle(e.querySelector('.englishCell')).visibility,getComputedStyle(e.querySelector('.answer')).visibility]));
+    assert(visibility.every(([en,zh])=>en===(mode==='zh'?'hidden':'visible')&&zh===(mode==='en'?'hidden':'visible')),'incorrect language visibility');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'study overflow');
     await contained('.card,.need',width);
-    const nodes=await page.locator('.word').evaluateAll(els=>els.map(e=>[e.querySelectorAll('strong').length,e.querySelectorAll('.answer').length]));
-    assert(nodes.every(([en,zh])=>en===(mode==='zh'?0:1)&&zh===(mode==='en'?0:1)),'duplicate or hidden content');
-    if(mode!=='both'){
-     const centers=await page.locator('.word').evaluateAll(els=>els.map(e=>{const a=e.getBoundingClientRect(),b=e.querySelector('strong,.answer').getBoundingClientRect();return Math.abs((a.left+a.right-b.left-b.right)/2)}));
-     assert(centers.every(d=>d<1),'single-language text shifted');
-    }
     checks++;
+    if(width===800)await page.screenshot({path:'layout-checks/study-'+mode+'.png',fullPage:true});
    }
-   // Individual cycling must use the same centered structure as bulk switching.
    await page.locator('.seg button').nth(0).click();
    const first=page.locator('.word').first();
-   for(const mode of ['both','en','zh']){await first.click();await page.waitForFunction(mode=>document.querySelector('.word').classList.contains('view-'+mode),mode);if(mode!=='both'){const delta=await first.evaluate(e=>{const a=e.getBoundingClientRect(),b=e.querySelector('strong,.answer').getBoundingClientRect();return Math.abs((a.left+a.right-b.left-b.right)/2)});assert(delta<1)}}
+   for(const mode of ['both','en','zh']){await first.click();await page.waitForFunction(mode=>document.querySelector('.word').classList.contains('view-'+mode),mode);assert.deepEqual(await geometry(),baseline,'individual switch moved text at '+width+'/'+mode)}
    await page.locator('.headerActions button').filter({hasText:'下一页'}).click();await page.waitForFunction(()=>document.querySelector('.headerTitle span').textContent.includes('第 2/2 页'));
    await page.locator('.homeBtn').click();await page.locator('.book').waitFor();
    if(width===800||width===1280)await page.screenshot({path:'layout-checks/library-'+width+'.png',fullPage:true});
