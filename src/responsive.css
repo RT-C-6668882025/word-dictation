@@ -157,7 +157,12 @@ footer {
 @media(max-width:600px) {
  .screen-study .headerTitle b { font-size: 17px; }
  .screen-study .navGroups { gap: 10px; }
- .screen-study .countControl { width: 100%; justify-content: space-between; }
+ .screen-study .countControl { width: 100%; justify-content: space-between; flex-wrap: nowrap; }
+ .screen-study .countControl > span { display: none; }
+ .screen-study .countControl button { flex: 1 1 0; min-width: 0; font-size: 14px; padding: 8px 4px; }
+ .screen-study .countControl button:last-child { flex: 0 0 54px; }
+ .screen-study .countControl input { flex: 0 0 44px; width: 44px; min-width: 0; padding: 8px 4px; font-size: 14px; appearance: textfield; }
+ .screen-study .countControl input::-webkit-inner-spin-button, .screen-study .countControl input::-webkit-outer-spin-button { appearance: none; margin: 0; }
  .screen-study .card { padding: 10px 8px; }
  .scopeControl button, .refreshButton { font-size: 14px; }
  .footerSummary span { display: none; }
