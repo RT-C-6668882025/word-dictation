@@ -100,3 +100,17 @@ footer {
   .about { margin-top: 20px; }
   .voiceMenu { position: fixed; top: calc(var(--safe-top) + 12px); bottom: auto; right: calc(var(--safe-right) + 14px); max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px); }
 }
+
+/* Independent index actions: opening a word never also changes its whitelist. */
+.indexEntry { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding-right: 10px; border-bottom: 1px solid #ecece8; }
+.indexEntry:last-child { border-bottom: 0; }
+.indexEntry .indexRow { border-bottom: 0; }
+.indexToggle { font-size: 12px; padding: 8px; white-space: nowrap; }
+.indexToggle.included { color: #77746c; }
+.roundActions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+@media(max-width:600px) {
+ .indexEntry .indexRow { grid-template-columns: 26px minmax(0,1fr); gap: 4px 8px; }
+ .indexEntry .indexRow > span:nth-of-type(2) { grid-column: 2; white-space: normal; overflow-wrap: anywhere; }
+ .roundActions { width: 100%; }
+ .roundActions button { flex: 1; font-size: 14px; padding: 8px; }
+}
