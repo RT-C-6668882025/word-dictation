@@ -52,6 +52,8 @@ const assert=require('node:assert/strict');
   await page.reload();assert.deepEqual(await saved(),before);
   // Opening an index from another book must not retain the previous book's batch.
   await page.locator('.book').nth(1).getByRole('button',{name:'索引',exact:true}).click();await back();
+  assert.equal(await page.locator('.card').count(),1);
+  await page.locator('.seg button').getByText('英文',{exact:true}).click();
   assert.equal(await page.locator('.word strong').innerText(),'other');
   assert.deepEqual(errors,[]);
   console.log('PASS whitelist: single/bulk reset, original order, page/size/language preservation, cross-page edits, empty/add-back, repeat, persistence and book isolation');
