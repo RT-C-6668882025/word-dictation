@@ -112,5 +112,55 @@ footer {
  .indexEntry .indexRow { grid-template-columns: 26px minmax(0,1fr); gap: 4px 8px; }
  .indexEntry .indexRow > span:nth-of-type(2) { grid-column: 2; white-space: normal; overflow-wrap: anywhere; }
  .roundActions { width: 100%; }
- .roundActions button { flex: 1; font-size: 14px; padding: 8px; }
+.roundActions button { flex: 1; font-size: 14px; padding: 8px; }
+}
+
+/* Study: one selection control per word, one navigation action at the bottom. */
+.screen-study header { padding-bottom: 16px; }
+.screen-study .headerTitle b { font-size: 18px; letter-spacing: 0; font-weight: 650; }
+.screen-study .studyNav { align-items: flex-start; flex-direction: column; padding: 18px 0 14px; gap: 12px; }
+.screen-study .navGroups { justify-content: space-between; gap: 12px; }
+.seg, .countControl { background: rgba(255,255,255,.6); }
+.pageStats { font-variant-numeric: tabular-nums; justify-content: flex-start; gap: 18px; }
+.listToolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #dedbd4; padding-top: 12px; }
+.scopeControl { display: flex; gap: 4px; }
+.scopeControl button { border: 0; color: #77746c; padding: 8px 12px; }
+.scopeControl button.on { background: #e7e5df; color: #171717; font-weight: 650; }
+.refreshButton { border: 0; color: #55524b; padding: 8px 10px; }
+.listHint { min-height: 20px; font-size: 12px; color: #858078; margin: 8px 0 14px; }
+.pullIndicator { overflow: hidden; display: grid; place-items: center; color: #605c53; font-size: 13px; }
+.screen-study .grid { border-radius: 18px; border-color: #ddd9d1; }
+.screen-study .card { min-height: 88px; padding: 12px 14px; }
+.need.markButton { width: 44px; min-width: 44px; height: 44px; padding: 8px; border: 0; display: grid; place-items: center; }
+.markBox { display: grid; place-items: center; width: 25px; height: 25px; border: 1.5px solid #cbc7be; border-radius: 8px; color: transparent; font-size: 17px; line-height: 1; }
+.marked .markBox { background: #252722; border-color: #252722; color: #fff; }
+.isExcluded .word { opacity: .5; }
+.markButton:focus-visible, .refreshButton:focus-visible, .scopeControl button:focus-visible { outline: 2px solid #555; outline-offset: 2px; }
+.footerSummary { color: #69655d; font-size: 13px; font-variant-numeric: tabular-nums; }
+.footerSummary span { color: #979187; }
+.footerActions { margin-left: auto; }
+.footerActions button { min-width: 110px; }
+.empty { padding: 48px 8px; }
+.empty h2 { font-size: 20px; font-weight: 600; }
+.empty p { font-size: 14px; line-height: 1.6; }
+
+/* Native dialog supplies focus trapping, background isolation and a true backdrop. */
+.voiceDialog { position: fixed; inset: 0; margin: auto; width: min(440px,calc(100vw - var(--safe-left) - var(--safe-right) - 32px)); height: fit-content; max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px); padding: 0; border: 1px solid #d9d5cb; border-radius: 22px; background: #fff; color: #171717; box-shadow: 0 24px 80px #17171733; }
+.voiceDialog::backdrop { background: rgba(30,28,24,.35); backdrop-filter: blur(3px); }
+.voiceDialog .voiceMenu { position: static; inset: auto; width: 100%; max-height: inherit; overflow-y: auto; overscroll-behavior: contain; padding: 20px; border: 0; border-radius: 0; box-shadow: none; }
+.voiceDialog .voiceMenuHead { position: sticky; top: -20px; z-index: 1; background: #fff; margin: -20px -20px 4px; padding: 16px 20px 12px; border-bottom: 1px solid #eeeae2; }
+.voiceDialog .voiceMenuHead b { font-size: 18px; }
+.voiceDialog .voiceClose { min-width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #f4f3ef; font-size: 26px; color: #555; }
+.voiceDialog .voiceMenu label { min-height: 52px; height: auto; gap: 12px; font-size: 14px; }
+.voiceDialog .voiceMenu select { min-height: 44px; font-size: 16px; }
+.voiceTrigger { font-weight: 600; }
+@media(max-width:600px) {
+ .screen-study .headerTitle b { font-size: 17px; }
+ .screen-study .navGroups { gap: 10px; }
+ .screen-study .countControl { width: 100%; justify-content: space-between; }
+ .screen-study .card { padding: 10px 8px; }
+ .scopeControl button, .refreshButton { font-size: 14px; }
+ .footerSummary span { display: none; }
+ .footerActions button { font-size: 14px; min-width: 100px; }
+ .voiceDialog { border-radius: 18px; }
 }

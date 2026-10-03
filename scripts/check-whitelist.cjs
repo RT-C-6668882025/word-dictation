@@ -1,78 +1,68 @@
 const {chromium}=require('playwright');
 const {spawn}=require('node:child_process');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 (async()=>{
- const server=spawn('npm',['run','preview','--','--host','127.0.0.1','--port','4182'],{stdio:'inherit'});
- let browser;
+ const server=spawn('npm',['run','preview','--','--host','127.0.0.1','--port','4182'],{stdio:'inherit'});let browser;
  try{
   for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4182')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
-  browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:4182');
-  await page.evaluate(()=>{
-   const words=Array.from({length:50},(_,i)=>({id:'w'+i,en:'word'+i,zh:'释义'+i}));
-   localStorage.setItem('wd_books_v2',JSON.stringify([
-    {id:'a',name:'白名单回归',pageSize:25,words,whitelist:{'0':words.slice(0,25).map(w=>w.id),'1':words.slice(25).map(w=>w.id)}},
-    {id:'b',name:'另一词库',pageSize:25,words:[{id:'other',en:'other',zh:'其他'}],whitelist:{'0':['other']}}
-   ]));
-  });await page.reload();await page.locator('.book').first().click();
-  const list=()=>page.locator('.num').allTextContents();
+  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox','--no-zygote','--single-process','--disable-gpu','--disable-software-rasterizer']}: {})});
+  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true});const page=await context.newPage();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4182');
+  await page.evaluate(()=>{const words=Array.from({length:25},(_,i)=>({id:'w'+i,en:'word'+i,zh:'释义'+i}));localStorage.setItem('wd_books_v2',JSON.stringify([{id:'a',name:'白名单交互检查',pageSize:10,words,whitelist:{'0':words.slice(0,10).map(w=>w.id),'1':words.slice(10,20).map(w=>w.id),'2':words.slice(20).map(w=>w.id)}},{id:'b',name:'另一词库',pageSize:10,words:[{id:'other',en:'other',zh:'其他'}],whitelist:{'0':['other']}}]))});
+  await page.reload();if(process.env.TEST_FONT_CSS){await page.addStyleTag({path:process.env.TEST_FONT_CSS});await page.evaluate(()=>document.fonts.ready)}
+  await page.locator('.book').first().click();await page.locator('.countControl button').getByText('10',{exact:true}).click();await page.locator('.seg button').getByText('英文',{exact:true}).click();
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('wd_books_v2')));
-  const first=async n=>{assert.equal((await list())[0],String(n).padStart(3,'0'));assert(!/已会|已掌握|全部会背|完成并/.test(await page.locator('main').innerText()),'whitelist must not infer mastery');};
-  const stats=async text=>assert((await page.locator('.pageStats').innerText()).includes(text));
-  const index=()=>page.getByRole('button',{name:'索引',exact:true}).click();
-  const back=()=>page.getByRole('button',{name:'返回学习',exact:true}).click();
-  await page.locator('.countControl button').getByText('10',{exact:true}).click();
-  await page.locator('.seg button').getByText('英文',{exact:true}).click();
-  await page.locator('.nextSizes button').getByText('10',{exact:true}).click();await first(11);
-  await page.locator('.need').first().click(); // Remove w10 from the second batch.
-  await first(1);assert.equal(await page.locator('.card').count(),10);await stats('需要背 24');await stats('本轮未展示 14');
-  assert.equal(await page.locator('.word.view-en').count(),10);
+  const ids=()=>page.locator('.num').allTextContents();const refresh=()=>page.getByRole('button',{name:'刷新当前页',exact:true}).click();
+  const snapshot=await ids();
+  await page.locator('.need').first().click();assert.deepEqual(await ids(),snapshot);assert.equal(await page.locator('.need').first().getAttribute('aria-pressed'),'true');
+  assert(!(await saved())[0].whitelist['0'].includes('w0'));
+  await page.locator('.need').first().click();assert.deepEqual(await ids(),snapshot);assert.equal(await page.locator('.need').first().getAttribute('aria-pressed'),'false');
+  assert((await saved())[0].whitelist['0'].includes('w0'));
+  await page.locator('.need').nth(1).click();
+  const cdp=await context.newCDPSession(page);
+  const gesture=async(dx,dy,cancel=false)=>{
+   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:8,y:240}]});
+   for(let i=1;i<=10;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:8+dx*i/10,y:240+dy*i/10}]});
+   await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await page.waitForTimeout(80);
+  };
+  await page.evaluate(()=>scrollTo(0,0));await gesture(0,35);assert.deepEqual(await ids(),snapshot,'short pull refreshed');
+  await gesture(110,10);assert.deepEqual(await ids(),snapshot,'horizontal swipe refreshed');
+  await gesture(0,120,true);assert.deepEqual(await ids(),snapshot,'cancelled gesture refreshed');
+  await page.evaluate(()=>scrollTo(0,500));await gesture(0,120);assert.deepEqual(await ids(),snapshot,'normal scrolling refreshed');
+  await page.evaluate(()=>scrollTo(0,0));await gesture(0,120);
+  assert.deepEqual(await ids(),['001','003','004','005','006','007','008','009','010']);assert.equal(await page.locator('.word.view-en').count(),9);
   assert.equal(await page.locator('.countControl button.on').innerText(),'10');
-  assert(!(await saved())[0].whitelist['0'].includes('w10'));
-  await page.getByRole('button',{name:'本批移出白名单',exact:true}).click();
-  await first(12);await stats('需要背 14');
-  assert.deepEqual((await saved())[0].whitelist['0'],Array.from({length:14},(_,i)=>'w'+(i+11)));
-  await index();await page.getByRole('button',{name:'加入白名单：word0',exact:true}).click();
-  assert.equal(await page.locator('.screen-index').count(),1);await back();await first(1);
-  assert.equal(await page.locator('.word.view-en').count(),10);await stats('需要背 15');await stats('本轮未展示 5');
-  // Editing a different page in the index must not change the study page or its list.
-  await page.locator('.headerActions button').filter({hasText:'下一页'}).click();await first(26);
-  await index();await page.getByRole('button',{name:'移出白名单：word0',exact:true}).click();await back();await first(26);
-  assert((await page.locator('.headerTitle span').innerText()).includes('第 2/2 页'));
-  await page.getByRole('button',{name:'本批移出白名单',exact:true}).click();await first(36);
-  await page.getByRole('button',{name:'本批移出白名单',exact:true}).click();await first(46);
-  await page.getByRole('button',{name:'本批移出白名单',exact:true}).click();
-  assert.equal(await page.locator('.card').count(),0);assert.equal(await page.getByText('本页白名单为空。',{exact:true}).count(),1);
+  await page.locator('.headerActions button').filter({hasText:'下一页'}).click();
+  await page.locator('.need').first().click();assert.equal(await page.locator('.card').count(),10);await refresh();
+  assert.equal((await ids())[0],'012');assert((await page.locator('.headerTitle span').innerText()).includes('第 2/3 页'));
+  // Every marked card stays available for an immediate undo before refreshing.
+  for(let i=0;i<9;i++)await page.locator('.need').nth(i).click();
+  assert.equal(await page.locator('.need[aria-pressed="true"]').count(),9);assert.equal(await page.locator('.card').count(),9);
+  await page.locator('.need').first().click();assert.equal(await page.locator('.need[aria-pressed="true"]').count(),8);
+  await page.locator('.need').first().click();await refresh();assert.equal(await page.locator('.card').count(),0);
+  await page.getByRole('button',{name:'查看本页全部单词',exact:true}).click();assert.equal(await page.locator('.card').count(),10);assert.equal(await page.locator('.need[aria-pressed="true"]').count(),10);
+  await page.locator('.need').first().click();assert.equal(await page.locator('.card').count(),10);await refresh();assert.equal(await page.locator('.card').count(),10,'all-words view lost excluded words');
+  await page.locator('.scopeControl button').getByText('白名单',{exact:true}).click();assert.deepEqual(await ids(),['011']);
+  assert.deepEqual((await saved())[0].whitelist['1'],['w10']);assert.deepEqual((await saved())[1].whitelist,{'0':['other']});
   assert(!/已会|已掌握|全部会背|完成并/.test(await page.locator('main').innerText()));
-  assert(await page.getByRole('button',{name:'加入白名单',exact:true}).isEnabled());
-  await page.getByRole('button',{name:'选择单词加入白名单',exact:true}).click();
-  assert.equal(await page.locator('.indexEntry').count(),25);
-  assert.equal(await page.getByRole('button',{name:'加入白名单：word0',exact:true}).count(),0);
-  await page.getByRole('button',{name:'加入白名单：word49',exact:true}).click();await back();await first(50);
-  assert.equal(await page.locator('.countControl button.on').innerText(),'10');
-  await page.getByRole('button',{name:'重新显示本页白名单',exact:true}).click();await first(50);
-  assert.equal(await page.getByRole('button',{name:'完成并返回首页',exact:true}).count(),0);
-  const before=await saved();assert.deepEqual(before[0].whitelist['1'],['w49']);assert.deepEqual(before[1].whitelist,{'0':['other']});
-  await page.reload();assert.deepEqual(await saved(),before);
-  // Opening an index from another book must not retain the previous book's batch.
-  await page.locator('.book').nth(1).getByRole('button',{name:'索引',exact:true}).click();await back();
-  assert.equal(await page.locator('.card').count(),1);
-  await page.locator('.seg button').getByText('英文',{exact:true}).click();
-  assert.equal(await page.locator('.word strong').innerText(),'other');
-  // Empty an entire one-word library, restart, then restore through the empty page.
-  await page.getByRole('button',{name:'本批移出白名单',exact:true}).click();
-  assert.equal(await page.locator('.card').count(),0);
-  await page.reload();await page.locator('.book').nth(1).click();
-  assert.equal(await page.locator('.card').count(),0);
-  await page.getByRole('button',{name:'加入白名单',exact:true}).click();
-  assert.equal(await page.locator('.indexEntry').count(),1);
-  await page.getByRole('button',{name:'加入白名单：other',exact:true}).click();await back();
-  assert.equal(await page.locator('.card').count(),1);
-  assert.deepEqual((await saved())[1].whitelist,{'0':['other']});
-  await page.reload();await page.locator('.book').nth(1).click();
-  assert.equal(await page.locator('.card').count(),1);
+  fs.mkdirSync('layout-checks',{recursive:true});
+  // All dismissal routes, short landscape, focus isolation, and post-close interaction.
+  for(const [width,height] of [[390,844],[800,1280],[1280,800],[844,390]]){
+   await page.setViewportSize({width,height});await page.getByRole('button',{name:'语音设置',exact:true}).click();
+   assert(await page.locator('.voiceDialog').evaluate(e=>e.open));
+   const box=await page.locator('.voiceDialog').boundingBox();assert(box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
+   await page.keyboard.press('Tab');assert(await page.locator('.voiceDialog').evaluate(e=>e.contains(document.activeElement)));
+   await page.screenshot({path:`layout-checks/voice-${width}.png`});
+   await page.getByRole('button',{name:'关闭语音设置',exact:true}).click();assert.equal(await page.locator('.voiceDialog').count(),0);
+   await page.getByRole('button',{name:'语音设置',exact:true}).click();await page.mouse.click(3,3);assert.equal(await page.locator('.voiceDialog').count(),0,'backdrop did not close');
+   await page.getByRole('button',{name:'语音设置',exact:true}).click();await page.keyboard.press('Escape');assert.equal(await page.locator('.voiceDialog').count(),0,'Escape did not close');
+   assert.equal(await page.evaluate(()=>document.body.style.overflow),'');
+   await refresh();assert.deepEqual(await ids(),['011']);
+  }
+  const before=await saved();await page.reload();assert.deepEqual(await saved(),before);
+  await page.locator('.book').first().click();assert(!(await ids()).includes('002'),'removed word returned after restart');
   assert.deepEqual(errors,[]);
-  console.log('PASS whitelist: single/bulk reset, original order, page/size/language preservation, cross-page edits, empty/add-back, repeat, persistence and book isolation');
+  console.log('PASS mark/unmark without movement, saved membership, real touch pull/short/cancel/scroll guards, refresh state, empty/all/add-back, persistence, and modal close/backdrop/Escape/focus at four sizes');
  }finally{await browser?.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

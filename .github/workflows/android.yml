@@ -37,6 +37,7 @@ jobs:
           node scripts/check-layout.cjs
           node scripts/check-whitelist.cjs
       - name: Upload layout screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: layout-checks
@@ -171,8 +172,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='426'"
-          echo "$BADGING" | grep -F "versionName='0.4.26'"
+          echo "$BADGING" | grep -F "versionCode='427'"
+          echo "$BADGING" | grep -F "versionName='0.4.27'"
 
       - name: Verify permanent APK signature
         env:
@@ -196,9 +197,10 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 白名单清空后保留可用的加入入口
-          - 从空白页直接选择本页单词，加入后保留当前页
-          - 检查整库清空、退出重开、重新加入的完整流程"
+          - 打勾移出、取消勾选加入，标记后保留原位，下拉刷新列表
+          - 本页全部视图可随时找回已移出的单词
+          - 精简学习页工具栏和底栏，整理手机和平板布局
+          - 语音面板支持关闭按钮、点外部、返回键及 Escape 关闭"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
