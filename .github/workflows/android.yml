@@ -171,8 +171,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='424'"
-          echo "$BADGING" | grep -F "versionName='0.4.24'"
+          echo "$BADGING" | grep -F "versionCode='425'"
+          echo "$BADGING" | grep -F "versionName='0.4.25'"
 
       - name: Verify permanent APK signature
         env:
@@ -196,10 +196,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 白名单增删后立即重建当前页，保留页码、显示数量和语言模式
-          - 批量修改一次完成，清除旧批次进度
-          - 索引支持直接加入和移出白名单
-          - 区分本轮未展示与需要背，支持重练本页白名单"
+          - 移除已会统计和掌握状态，只保留加入与移出白名单
+          - 白名单为空仅表示当前未选词，不代表全部掌握
+          - 保留增删后重置当前页，以及手机和平板适配"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
