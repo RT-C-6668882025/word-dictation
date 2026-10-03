@@ -1,0 +1,102 @@
+/* Capacitor injects these values on Android; browsers use CSS environment insets. */
+:root {
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --page-gutter: clamp(14px, 3vw, 36px);
+  color-scheme: light;
+}
+html { scroll-padding-top: calc(var(--safe-top) + 16px); }
+/* Keep scrolling text out of translucent Android system bars too. */
+#root::before, #root::after { content: ''; position: fixed; left: 0; right: 0; background: #f4f3ef; z-index: 40; pointer-events: none; }
+#root::before { top: 0; height: var(--safe-top); }
+#root::after { bottom: 0; height: var(--safe-bottom); }
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + 18px) calc(var(--safe-right) + var(--page-gutter)) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + var(--page-gutter));
+}
+.screen-study { padding-bottom: calc(var(--footer-height, 180px) + var(--safe-bottom) + 20px); }
+header { gap: 10px; padding-bottom: 14px; }
+header > button { justify-self: end; }
+button, .file { min-height: 44px; touch-action: manipulation; }
+input, textarea, select { font-size: 16px; }
+.headerActions { gap: 2px; width: auto; }
+.import { margin: 24px auto 0; }
+.importMeta { grid-template-columns: minmax(0, 1fr) 140px; }
+.importMeta label, .importMeta input { min-width: 0; width: 100%; }
+.importMeta input { font-size: 16px; }
+.import p { font-size: 14px; margin: 16px 0 0; }
+.import textarea { display: block; height: clamp(180px, 32dvh, 320px); min-height: 160px; padding: 14px; margin: 14px 0; font-family: ui-monospace, 'Noto Sans SC', monospace; }
+.row { flex-wrap: wrap; }
+.file { display: inline-flex; align-items: center; justify-content: center; }
+.books { padding: 18px 0; }
+.book strong { font-size: 19px; }
+.bookRight { flex-wrap: wrap; }
+.studyNav { padding: 14px 0; gap: 12px; }
+.navGroups { width: 100%; }
+.pageStats { gap: 10px; }
+.countControl { max-width: 100%; }
+.countControl button { padding: 8px 10px; }
+.card { gap: 8px; padding: 12px; }
+.num { width: 26px; }
+.need { min-width: 60px; padding: 8px; }
+.speaker { width: 36px; height: 44px; }
+.word .speaker { flex: 0 0 36px; }
+footer {
+  z-index: 20; gap: 10px; flex-wrap: wrap;
+  padding: 10px max(calc(var(--safe-right) + var(--page-gutter)), calc((100vw - 1400px)/2 + var(--page-gutter))) calc(10px + var(--safe-bottom)) max(calc(var(--safe-left) + var(--page-gutter)), calc((100vw - 1400px)/2 + var(--page-gutter)));
+}
+.footerLeft, .nextSizes { min-width: 0; flex-wrap: wrap; }
+.nextSizes { justify-content: flex-end; margin-left: auto; }
+.wordIndex { width: 100%; padding: 16px 0 0; }
+.indexSearch { top: var(--safe-top); background: #f4f3ef; gap: 8px; }
+.indexRow { min-height: 60px; }
+.about { margin: 28px auto 0; }
+.aboutHero, .aboutIdentity, .aboutMeta > div { min-width: 0; }
+.about h1 { font-size: clamp(30px, 5vw, 56px); }
+.voiceMenu { max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 100px); overflow-y: auto; }
+@media (max-width: 600px) {
+  .shell { padding-top: calc(var(--safe-top) + 12px); }
+  header { align-items: start; }
+  header b { font-size: 15px; letter-spacing: .02em; }
+  header span { font-size: 12px; }
+  .headerActions { justify-content: flex-end; max-width: 180px; }
+  .headerActions button { padding: 8px 10px; font-size: 14px; }
+  .screen-study .headerActions { max-width: none; gap: 0; }
+  .screen-study .headerActions button { padding: 8px; }
+  .import { margin-top: 18px; }
+  .importMeta { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .import textarea { font-size: 16px; line-height: 1.6; }
+  .import .row > * { flex: 1; }
+  .book { padding: 14px; }
+  .card { padding: 10px 8px; gap: 4px; }
+  .word { padding: 6px; }
+  .word strong, .word .answer { font-size: 17px; }
+  .countControl > span { padding: 0 5px; }
+  .countControl button { padding: 8px; }
+  .countControl input { width: 48px; }
+  .footerLeft { width: 100%; }
+  .footerLeft button { flex: 1; padding: 8px; font-size: 14px; }
+  .nextSizes { width: 100%; justify-content: flex-start; }
+  .nextSizes button { padding: 8px; }
+  .nextSizes input { width: 52px; }
+  .indexRow { grid-template-columns: 28px minmax(0, .85fr) minmax(0, 1.15fr); padding: 10px 8px; }
+  .aboutHero { gap: 18px; }
+  .aboutMark { width: 60px; height: 60px; font-size: 20px; border-radius: 16px; }
+  .projectCard { margin-top: 24px; }
+  .githubBadge { padding: 18px 14px; gap: 10px; }
+  .githubBadge b { font-size: 15px; }
+  .aboutMeta > div { padding: 16px; }
+  .voiceMenu { top: calc(var(--safe-top) + 16px); bottom: auto; left: calc(var(--safe-left) + 14px); right: calc(var(--safe-right) + 14px); max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px); }
+}
+/* Landscape phones and a resized keyboard window need the content height. */
+@media (max-height: 500px) {
+  .screen-study { padding-bottom: calc(var(--safe-bottom) + 16px); }
+  footer { position: static; margin: 16px calc(-1 * var(--page-gutter)) 0; padding: 10px var(--page-gutter); }
+  .import { margin-top: 16px; }
+  .import textarea { height: 180px; }
+  .about { margin-top: 20px; }
+  .voiceMenu { position: fixed; top: calc(var(--safe-top) + 12px); bottom: auto; right: calc(var(--safe-right) + 14px); max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px); }
+}

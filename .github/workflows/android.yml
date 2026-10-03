@@ -170,8 +170,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='422'"
-          echo "$BADGING" | grep -F "versionName='0.4.22'"
+          echo "$BADGING" | grep -F "versionCode='423'"
+          echo "$BADGING" | grep -F "versionName='0.4.23'"
 
       - name: Verify permanent APK signature
         env:
@@ -195,9 +195,10 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 卡片按可读宽度自动排成一栏或两栏，避免竖屏把中英内容挤成窄条
-          - 手机中英内容上下排列，三种显示模式仍保持固定位置
-          - 新增 business、central 等普通单词不被拆行的检查"
+          - 手机和平板横竖屏统一适配，修复标题与状态栏重叠
+          - 新建词库缩减空白，表单与导航按可用宽度排列
+          - 底部工具栏自动预留空间，短屏和键盘场景可滚动操作
+          - 回归检查首页、导入、学习、索引、关于及中英文切换"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
@@ -217,3 +218,4 @@ jobs:
       - name: Remove signing key
         if: always()
         run: rm -f android/app/word-dictation-release.jks
+
