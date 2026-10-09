@@ -169,3 +169,43 @@ footer {
  .footerActions button { font-size: 14px; min-width: 100px; }
  .voiceDialog { border-radius: 18px; }
 }
+
+/* Reading layout: stable answer positions, more space for definitions. */
+.screen-study .studyNav { padding: 14px 0 12px; gap: 10px; }
+.screen-study .navGroups { align-items: flex-start; gap: 12px 24px; }
+.screen-study .countControl { border: 0; background: transparent; padding: 0; gap: 2px; flex-wrap: wrap; }
+.screen-study .countControl > span { display: inline; padding-left: 0; margin-right: 4px; }
+.screen-study .countControl button { min-width: 44px; }
+.customCount { display: flex; align-items: center; gap: 6px; margin-left: 12px; padding-left: 14px; border-left: 1px solid #d8d6cf; }
+.customCount label { font-size: 12px; color: #77746c; white-space: nowrap; }
+.screen-study .customCount input { width: 62px; min-height: 44px; border: 1px solid #d0cec6; border-radius: 8px; background: #fff; padding: 6px; }
+.screen-study .customCount button { border: 1px solid #d0cec6; background: rgba(255,255,255,.6); padding: 8px 12px; }
+.screen-study .listToolbar { padding-top: 10px; }
+.screen-study .listHint { margin: 6px 0 12px; line-height: 1.6; }
+.screen-study .card { min-height: 76px; padding: 10px 14px; gap: 12px; }
+.screen-study .word { grid-template-columns: minmax(150px,.65fr) minmax(0,1.35fr); gap: 20px; }
+.screen-study .word .answer { text-align: left; color: #65635e; line-height: 1.6; }
+.screen-study .word strong { font-size: 20px; line-height: 1.4; }
+.screen-study .word .answer { font-size: 18px; }
+.screen-study .num { font-variant-numeric: tabular-nums; }
+.screen-study .word:focus-visible, .screen-study .countControl button:focus-visible, .screen-study .seg button:focus-visible { outline: 2px solid #555; outline-offset: -2px; }
+.screen-study .customCount input:focus-visible { outline: 2px solid #555; outline-offset: 2px; }
+@media (min-width: 1100px) {
+ .screen-study .grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (min-width: 601px) and (max-width: 1099px) {
+ .screen-study .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+ .screen-study .navGroups { gap: 12px; }
+ .screen-study .countControl { justify-content: flex-start; gap: 4px; }
+ .screen-study .countControl > button { flex: 1 1 0; }
+ .screen-study .customCount { flex: 1 0 100%; margin: 4px 0 0; padding: 0; border: 0; }
+ .screen-study .customCount input { flex: 0 0 62px; width: 62px; font-size: 16px; }
+ .screen-study .customCount button { flex: 0 0 auto; }
+ .screen-study .card { padding: 8px; gap: 4px; min-height: 76px; }
+ .screen-study .word { grid-template-columns: minmax(0,1fr); gap: 4px; }
+ .screen-study .word strong, .screen-study .word .answer { font-size: 17px; }
+ .screen-study .pageStats { gap: 12px; font-size: 12px; }
+ .screen-study .headerActions { flex-wrap: wrap; }
+}

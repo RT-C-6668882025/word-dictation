@@ -172,8 +172,8 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='427'"
-          echo "$BADGING" | grep -F "versionName='0.4.27'"
+          echo "$BADGING" | grep -F "versionCode='428'"
+          echo "$BADGING" | grep -F "versionName='0.4.28'"
 
       - name: Verify permanent APK signature
         env:
@@ -199,7 +199,8 @@ jobs:
 
           - 打勾移出、取消勾选加入，标记后保留原位，下拉刷新列表
           - 本页全部视图可随时找回已移出的单词
-          - 精简学习页工具栏和底栏，整理手机和平板布局
+          - 扩大中文释义区域并左对齐，优化手机和平板横竖屏布局
+          - 分开预设数量与自定义输入，单词点按可查看及隐藏答案
           - 语音面板支持关闭按钮、点外部、返回键及 Escape 关闭"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then

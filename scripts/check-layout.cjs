@@ -63,7 +63,8 @@ const fs=require('node:fs');
     const visibility=await page.locator('.word').evaluateAll(els=>els.map(e=>[getComputedStyle(e.querySelector('.englishCell')).visibility,getComputedStyle(e.querySelector('.answer')).visibility]));
     assert(visibility.every(([en,zh])=>en===(mode==='zh'?'hidden':'visible')&&zh===(mode==='en'?'hidden':'visible')),'incorrect language visibility');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'study overflow');
-    await contained('.card,.need',width);
+    await contained('.card,.need,.customCount,.countControl button,.countControl input',width);
+    assert(await page.locator('.answer').evaluateAll(els=>els.every(e=>getComputedStyle(e).textAlign==='left')),'definitions must be left aligned');
     const intact=await page.locator('.word strong').evaluateAll(els=>els.filter(e=>/^(business|central)\b/.test(e.textContent)).map(e=>{const token=e.textContent.split(' ')[0];const range=document.createRange();range.setStart(e.firstChild,0);range.setEnd(e.firstChild,token.length);return range.getClientRects().length===1}));
     assert(intact.length>0&&intact.every(Boolean),'ordinary English word split at '+width+'/'+mode);
     checks++;
@@ -71,7 +72,10 @@ const fs=require('node:fs');
    }
    await page.locator('.seg button').nth(0).click();
    const first=page.locator('.word').first();
-   for(const mode of ['both','en','zh']){await first.click({position:{x:8,y:8}});await page.waitForFunction(mode=>document.querySelector('.word').classList.contains('view-'+mode),mode);assert.deepEqual(await geometry(),baseline,'individual switch moved text at '+width+'/'+mode)}
+   for(const mode of ['both','zh','both','zh']){await first.click({position:{x:8,y:8}});await page.waitForFunction(mode=>document.querySelector('.word').classList.contains('view-'+mode),mode);assert.deepEqual(await geometry(),baseline,'individual switch moved text at '+width+'/'+mode)}
+   await page.locator('.seg button').nth(1).click();
+   for(const mode of ['both','en']){await first.click({position:{x:8,y:8}});await page.waitForFunction(mode=>document.querySelector('.word').classList.contains('view-'+mode),mode);assert.deepEqual(await geometry(),baseline,'English prompt toggle moved text')}
+   await page.locator('#custom-count').fill('7');await page.locator('.customCount button').click();assert.equal(await page.locator('.card').count(),7,'custom count not applied');
    await contained('footer button,footer input',width);
    await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
    await page.waitForTimeout(100);
