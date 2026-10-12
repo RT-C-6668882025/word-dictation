@@ -19,3 +19,11 @@
 `npm test` 验证远程 MCP 初始化、工具发现、手机轮询、结果返回、鉴权、来源拒绝、超时和关闭连接。根目录执行 `npx tsx scripts/check-ai.ts` 验证跨页白名单、撤销保留已有词、无效 ID 原子拒绝、分页和导入。
 
 目前实现和协议测试已完成；正式公网服务及真实手机联调需部署后验证，不能把本地测试视为 APK 已可连任意云端 Agent。
+
+## 腾讯云部署文件
+
+`docker compose -f mcp/compose.yml up -d --build` 启动独立服务，端口只绑定服务器本地 `127.0.0.1:18766`。使用现有 HTTPS 代理添加站点，Caddy 示例见 `Caddyfile.example`；保留服务器已有站点配置。域名须先解析到服务器。
+
+部署后在可访问公网的 Node 22+ 环境运行 `node mcp/smoke.mjs https://服务域名`，检查 HTTPS、初始化、六个工具、双向请求和关闭连接。此检查使用模拟手机，不读真实词库。真实手机需再验证读取、白名单和导入。
+
+Android 构建支持手动输入 `ai_relay_url`，或读取 GitHub 仓库变量 `AI_RELAY_URL`；地址内置到 APK，使用者无需配置服务器。

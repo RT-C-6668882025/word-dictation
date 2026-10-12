@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      ai_relay_url:
+        description: '正式 HTTPS MCP 连接服务地址（须先验证）'
+        required: false
+        type: string
 permissions:
   contents: write
 concurrency:
@@ -27,6 +32,7 @@ jobs:
         env:
           BUILD_TARGET: android
           VITE_COMMIT_SHA: ${{ github.sha }}
+          VITE_AI_RELAY_URL: ${{ inputs.ai_relay_url || vars.AI_RELAY_URL }}
       - name: Verify layout in Chromium
         env:
           BUILD_TARGET: android

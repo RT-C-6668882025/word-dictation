@@ -1,0 +1,6 @@
+# Add this site block to the existing Caddy configuration; preserve other sites.
+# Replace mcp.example.com with the chosen domain pointing at this server.
+mcp.example.com {
+    reverse_proxy 127.0.0.1:18766
+    # Do not enable access logging: MCP paths contain connection credentials.
+}

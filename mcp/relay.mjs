@@ -19,6 +19,7 @@ export function createRelay({origins=[],timeout=25000,ttl=86400000,maxSessions=1
   if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Content-Type,Authorization,MCP-Protocol-Version');res.setHeader('Access-Control-Allow-Methods','POST,GET,DELETE,OPTIONS')}
   if(req.method==='OPTIONS')return send(res,204);
   const path=new URL(req.url,'http://relay').pathname;
+  if(path==='/health'&&req.method==='GET')return send(res,200,{ok:true});
   if(path==='/pair'&&req.method==='POST'){
    if(sessions.size>=maxSessions)return send(res,503,{error:'Session limit'});
    const s={agent:randomBytes(32).toString('hex'),device:randomBytes(32).toString('hex'),last:Date.now(),queue:[],pending:new Map()};sessions.set(s.agent,s);deviceSessions.set(s.device,s);return send(res,200,{agentToken:s.agent,deviceToken:s.device});
