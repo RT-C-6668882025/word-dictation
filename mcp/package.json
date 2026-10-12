@@ -1,0 +1,1 @@
+{"name":"word-dictation-relay","private":true,"type":"module","scripts":{"start":"node relay.mjs","test":"node --test relay.test.mjs"},"engines":{"node":">=22"}}

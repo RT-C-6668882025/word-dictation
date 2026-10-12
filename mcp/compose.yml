@@ -1,0 +1,17 @@
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      PORT: 8080
+      ALLOWED_ORIGINS: https://localhost,http://localhost,https://rt-c-6668882025.github.io
+    ports:
+      - "127.0.0.1:18766:8080"
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
