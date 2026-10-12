@@ -19,6 +19,8 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: node --test mcp/relay.test.mjs
+      - run: npx --yes tsx scripts/check-ai.ts
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - run: node scripts/check-native-cache.cjs

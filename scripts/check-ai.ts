@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {executeAi} from '../src/aiBridge.ts';
+import {updateWhitelist,type Book} from '../src/wordbook.ts';
+import {parseText} from '../src/parser.ts';
+let books:Book[]=[{id:'a',name:'A',pageSize:10,words:Array.from({length:25},(_,i)=>({id:'w'+i,en:'word'+i,zh:'释义'+i})),whitelist:{'0':['w0'],'1':['w10']}},{id:'b',name:'B',pageSize:10,words:[],whitelist:{}}];
+const ops={books:()=>books,change:(book:Book,ids:string[],need:boolean)=>{const r=updateWhitelist(book,ids,need);books=books.map(b=>b.id===book.id?r.book:b);return r.changedIds},import:(raw:string,name:string,pageSize:number)=>{const words=parseText(raw);if(!words.length)throw Error('Empty');const b={id:'new',name,pageSize,words,whitelist:{'0':words.map(w=>w.id)}};books.push(b);return b}};
+assert.equal((executeAi('list_wordbooks',{},ops) as any[]).length,2);
+const rows=executeAi('get_words',{book_id:'a',offset:9,limit:3},ops) as any;assert.equal(rows.words[1].page,2);assert.equal(rows.words[1].in_whitelist,true);assert.equal(rows.next_offset,12);
+const added=executeAi('add_to_whitelist',{book_id:'a',word_ids:['w0','w2','w11','w24','w24']},ops) as any;assert.deepEqual(added.changed_ids,['w2','w11','w24']);
+executeAi('remove_from_whitelist',{book_id:'a',word_ids:added.changed_ids},ops);assert.deepEqual(books[0].whitelist['0'],['w0']);assert.deepEqual(books[0].whitelist['1'],['w10']);assert.deepEqual(books[1].whitelist,{});
+const before=JSON.stringify(books);assert.throws(()=>executeAi('remove_from_whitelist',{book_id:'a',word_ids:['w0','bad']},ops));assert.equal(JSON.stringify(books),before);
+assert.throws(()=>executeAi('get_words',{book_id:'a',limit:501},ops));assert.throws(()=>executeAi('import_wordbook',{name:'bad',text:'no words'},ops));
+const temp=executeAi('create_temp_wordbook',{name:'金融',text:'money,钱\nbank,银行',page_size:10},ops) as any;assert.equal(temp.name,'[临时] 金融');assert.equal(temp.count,2);console.log('AI operations passed');
