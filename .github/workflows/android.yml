@@ -42,6 +42,7 @@ jobs:
           node scripts/check-native-cache.cjs
           node scripts/check-layout.cjs
           node scripts/check-whitelist.cjs
+          node scripts/check-ai-ui.cjs
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -178,8 +179,10 @@ jobs:
           BADGING="$("$AAPT" dump badging word-dictation.apk | head -1)"
           echo "$BADGING"
           echo "$BADGING" | grep -F "name='com.rtc.worddictation'"
-          echo "$BADGING" | grep -F "versionCode='429'"
-          echo "$BADGING" | grep -F "versionName='0.4.29'"
+          EXPECTED_VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED_CODE="$(node -e "const [a,b,c]=require('./package.json').version.split('.').map(Number);process.stdout.write(String(a*10000+b*100+c))")"
+          echo "$BADGING" | grep -F "versionCode='${EXPECTED_CODE}'"
+          echo "$BADGING" | grep -F "versionName='${EXPECTED_VERSION}'"
 
       - name: Verify permanent APK signature
         env:
@@ -203,9 +206,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 新增 AI 远程连接：手机无需电脑，通过 MCP 协议直连云端词库服务
-          - 支持远程读取词库、加入/移出白名单、导入词书、创建专题词库
-          - 此前版本的所有学习功能保持不变"
+          - 整理 AI 连接卡片：统一留白、按钮、状态与连接地址排版
+          - 增加连接中的操作反馈，复制结果在卡片内显示
+          - 界面和安装包版本统一读取，修正重复更新提示"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
