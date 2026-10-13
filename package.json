@@ -1,37 +1,39 @@
 {
   "name": "word-dictation",
   "private": true,
-  "version": "0.4.32",
+  "version": "0.4.33",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/build-native-ai.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "android:add": "cap add android",
     "android:sync": "npm run build && cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "latest",
+    "@capacitor/app": "latest",
+    "@capacitor/browser": "latest",
+    "@capacitor/core": "latest",
+    "@capacitor/preferences": "latest",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
+    "mammoth": "^1.10.0",
+    "papaparse": "latest",
+    "pdfjs-dist": "^5.4.530",
     "react": "latest",
     "react-dom": "latest",
-    "xlsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
     "vite-plugin-pwa": "latest",
-    "@capacitor/core": "latest",
-    "@capacitor/android": "latest",
-    "papaparse": "latest",
-    "@capacitor/browser": "latest",
-    "@capacitor/preferences": "latest",
-    "mammoth": "^1.10.0",
-    "pdfjs-dist": "^5.4.530",
-    "@capacitor/app": "latest"
+    "xlsx": "latest"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@capacitor/cli": "latest",
+    "@types/papaparse": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@capacitor/cli": "latest",
-    "@types/papaparse": "latest"
+    "esbuild": "^0.28.2"
   }
 }
-

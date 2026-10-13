@@ -3,3 +3,5 @@ dist
 android
 .DS_Store
 *.local
+
+native/ai-engine.js
