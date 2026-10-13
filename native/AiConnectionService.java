@@ -82,10 +82,10 @@ public class AiConnectionService extends Service {
                     try { transaction = AiWordStore.execute(this, row); }
                     catch (Exception error) { transaction = new JSONObject().put("response", new JSONObject().put("error", "词库保存状态未确认，请用原指令编号查询或重试").put("data_changed", true)).put("changed", false); }
                     JSONObject response = transaction.getJSONObject("response"); response.put("id", id); outbox = response;
-                    request(base, secret, "/device/result", outbox); outbox = null;
                     JSONObject event = new JSONObject().put("type", "completed").put("owner", sessionOwner).put("request", row).put("response", response);
                     if (transaction.optBoolean("changed")) event.put("snapshot", transaction.getJSONObject("state"));
                     emit(event);
+                    request(base, secret, "/device/result", outbox); outbox = null;
                 }
                 // The relay currently waits one second; keep idle polling below one request per second.
                 if (rows.length() == 0) Thread.sleep(4000);
@@ -100,7 +100,7 @@ public class AiConnectionService extends Service {
     protected String request(String base, String secret, String path, JSONObject body) throws Exception {
         HttpURLConnection connection = (HttpURLConnection)new URL(base + path).openConnection(); activeConnection = connection;
         try {
-            connection.setConnectTimeout(10000); connection.setReadTimeout(15000); connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(5000); connection.setReadTimeout(10000); connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("Authorization", "Bearer " + secret);
             if (body != null) {
                 connection.setRequestMethod("POST"); connection.setRequestProperty("Content-Type", "application/json"); connection.setDoOutput(true);
