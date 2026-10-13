@@ -48,7 +48,9 @@ public final class AiWordStore {
             Scriptable api = (Scriptable)ScriptableObject.getProperty(scope, "WordAiEngine");
             Function fn = (Function)ScriptableObject.getProperty(api, "transact");
             JSONObject transaction = new JSONObject(org.mozilla.javascript.Context.toString(fn.call(js, scope, api, new Object[]{state.toString(), request.toString()})));
-            if (transaction.getBoolean("changed")) save(context, transaction.getJSONObject("state"));
+            // A replay also reconfirms persistence: a failed commit can have updated the Preferences memory cache.
+            JSONObject response = transaction.getJSONObject("response");
+            if (transaction.getBoolean("changed") || (response.optJSONObject("result") != null && response.getJSONObject("result").optBoolean("saved"))) save(context, transaction.getJSONObject("state"));
             return transaction;
         } finally { org.mozilla.javascript.Context.exit(); }
     }
