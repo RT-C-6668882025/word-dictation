@@ -1,4 +1,4 @@
-import {Capacitor} from '@capacitor/core';
+import {Capacitor,registerPlugin} from '@capacitor/core';
 import {Preferences} from '@capacitor/preferences';
 import type {Book} from './wordbook';
 export type Operations={books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
@@ -38,6 +38,7 @@ async function api(c:Connection,path:string,body?:unknown,signal?:AbortSignal){
 export async function connectAi(url:string):Promise<Connection>{const base=url.replace(/\/$/,'');if(!base.startsWith('https://'))throw Error('连接服务需要 HTTPS 地址');const health=await fetch(base+'/health',{signal:AbortSignal.timeout(15000)});if(!health.ok)throw Error('连接服务暂时不可用');const info=await health.json();if(info.protocol!==2||!info.persistent)throw Error('连接服务尚未升级为固定配对版本，请先更新服务');const r=await fetch(base+'/pair',{method:'POST',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('连接服务暂时不可用');const data=await r.json();const c={url:base,token:data.deviceToken,mcpUrl:base+'/mcp/'+data.agentToken};await savePair(c);return c}
 export type AiRequest={id:string;name:string;arguments:Record<string,any>};
 export function attachAi(c:Connection,execute:(r:AiRequest)=>Promise<unknown>,onState:(s:AiState)=>void,onResult:(r:AiRequest,result:any,error?:string)=>void){
+ if(Capacitor.isNativePlatform())return attachNativeAi(c,execute,onState,onResult);
  const controller=new AbortController();let stopped=false,failures=0;
  const sleep=(ms:number)=>new Promise<void>(resolve=>{if(controller.signal.aborted)return resolve();const t=setTimeout(done,ms);function done(){clearTimeout(t);controller.signal.removeEventListener('abort',done);resolve()}controller.signal.addEventListener('abort',done,{once:true})});
  const outbox=new Map<string,any>();
@@ -52,3 +53,19 @@ export function attachAi(c:Connection,execute:(r:AiRequest)=>Promise<unknown>,on
  return ()=>{stopped=true;controller.abort();window.removeEventListener('offline',offline)};
 }
 export async function disconnectAi(c:Connection){try{await api(c,'/device/close',{})}catch(e){if(!(e instanceof Error)||e.message!=='PAIR_REVOKED')throw e}await forgetPair()}
+
+const NativeAi=registerPlugin<any>('AiConnection');
+function attachNativeAi(c:Connection,execute:(r:AiRequest)=>Promise<unknown>,onState:(s:AiState)=>void,onResult:(r:AiRequest,result:any,error?:string)=>void){
+ const owner=crypto.randomUUID();let disposed=false,handle:any;
+ onState('connecting');
+ (async()=>{try{
+  const listener=await NativeAi.addListener('event',async(event:any)=>{
+   if(disposed||event.owner!==owner)return;
+   if(event.type==='state'){onState(event.state);return}
+   if(event.type==='request'){let response;try{const result=await execute(event);response={result};onResult(event,result)}catch(e){const error=e instanceof Error?e.message:String(e);response={error,data_changed:(e as any)?.dataChanged??false};onResult(event,null,error)}await NativeAi.respond({owner,id:event.id,...response}).catch(()=>{if(!disposed)onState('reconnecting')})}
+  });if(disposed){await listener.remove();return}handle=listener;
+  await NativeAi.start({owner,url:c.url,token:c.token});
+  if(disposed)await NativeAi.stop({owner});
+ }catch{if(!disposed)onState('reconnecting')}})();
+ return()=>{disposed=true;handle?.remove();NativeAi.stop({owner}).catch(()=>{})};
+}

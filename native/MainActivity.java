@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PocketTtsPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(AiConnectionPlugin.class);
         super.onCreate(savedInstanceState);
         WebView webView = getBridge().getWebView();
         webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
