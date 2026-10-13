@@ -5,7 +5,10 @@ services:
     init: true
     environment:
       PORT: 8080
+      DATA_FILE: /data/relay.json
       ALLOWED_ORIGINS: https://localhost,http://localhost,https://rt-c-6668882025.github.io
+    volumes:
+      - relay-data:/data
     ports:
       - "127.0.0.1:18766:8080"
     mem_limit: 256m
@@ -15,3 +18,6 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+volumes:
+  relay-data:

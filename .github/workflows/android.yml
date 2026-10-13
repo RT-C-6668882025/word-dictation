@@ -206,9 +206,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 整理 AI 连接卡片：统一留白、按钮、状态与连接地址排版
-          - 增加连接中的操作反馈，复制结果在卡片内显示
-          - 界面和安装包版本统一读取，修正重复更新提示"
+          - AI 配对保留固定地址，重开应用自动连接，断网自动重连
+          - 所有页面显示实际连接状态，支持手动重连和解除配对
+          - 指令保存后返回明确结果，支持编号查询和重复导入保护"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest

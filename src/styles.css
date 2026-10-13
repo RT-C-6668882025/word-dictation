@@ -91,3 +91,9 @@ header>.headerTitle>span{display:block;max-width:100%;white-space:normal;overflo
 .aiCard button:focus-visible,.aiEndpoint textarea:focus-visible{outline:2px solid #68655d;outline-offset:3px}
 @media(max-width:700px){.aiCard{padding:22px;margin-top:22px}.aiCard h2{font-size:21px}.aiActions button{flex:1}.aiActions .aiDisconnect{flex:0 0 auto}}
 @media(max-width:360px){.aiCard{padding:18px}.aiActions{flex-direction:column}.aiActions button{width:100%}}
+
+.aiConnectionBar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:32px;margin:-12px 0 12px;padding:5px 0;background:#f4f3ef}
+.aiConnectionBadge{display:inline-flex;gap:7px;align-items:center;border:0;padding:5px 9px;font-size:11px;color:#77746c;background:#eeede8;border-radius:99px;white-space:nowrap}
+.aiConnectionBadge i{width:6px;height:6px;border-radius:50%;background:currentColor}.aiConnectionBadge.state-ready,.aiConnectionBadge.state-working{color:#386749;background:#e8efe7}.aiConnectionBadge.state-connecting,.aiConnectionBadge.state-reconnecting{color:#8a6a29;background:#f1ebdf}
+.aiActionToast{font-size:12px;color:#555249;max-width:70%;overflow-wrap:anywhere}.aiConnectionBar:has(.aiActionToast){justify-content:space-between}
+@media(max-width:700px){.aiConnectionBar{margin:0 0 8px}.aiActionToast{font-size:11px;max-width:65%}}
