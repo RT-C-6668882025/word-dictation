@@ -31,3 +31,9 @@ Node.js 22+ 长期单进程服务，HTTPS 代理到本地 127.0.0.1:18766。Dock
 App 构建设置 VITE_AI_RELAY_URL；Android 工作流读取仓库变量 AI_RELAY_URL 或 ai_relay_url 输入，使用者无需填写服务器地址。系统凭据是 App 自己生成的配对身份，不读取手机已有钱包或其他 App 密钥。
 
 验证：node --test mcp/relay.test.mjs；npx tsx scripts/check-ai.ts；node scripts/check-ai-ui.cjs（需先构建并准备 Playwright Chromium）。
+
+## Android 后台连接
+
+0.4.32 开始由 Android 原生前台服务执行设备轮询和结果回传，页面保留词库解析与保存逻辑。通知栏显示状态，切到其他应用时继续运行。后台服务仅在现有 WebView/Bridge 仍存活时接收指令，销毁或划掉应用后停止，不伪装为在线；配对身份不撤销。重新打开应用自动恢复。网页版本仍使用浏览器连接循环。
+
+首次启动可请求通知权限，拒绝通知权限不解除配对。Android 15+ 的 dataSync 前台服务有累计后台运行时限，超时会正常停止并提示回到应用恢复。系统强制停止、省电策略或长时间待机仍可能限制连接，不能承诺永久后台在线。实现没有滥用其他服务类型绕开系统限制。
