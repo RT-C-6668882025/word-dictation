@@ -32,3 +32,13 @@ test('pairing and completed results survive server restart; leased delivery retr
   assert.equal((await c.rpc('get_operation_result',{request_id:'restart-1'})).result.id,'book-1');assert.equal((await c.rpc('import_wordbook',{operation_id:'restart-1',name:'旅行',text:'trip,旅行'})).status,'succeeded');
  }finally{if(server)await close(server);rmSync(dir,{recursive:true,force:true})}
 });
+
+test('current protocol and future initialization negotiate before checking headers',async()=>{
+ const {server,base}=await launch();try{
+  const pair=await json(base+'/pair',{method:'POST'}),url=base+'/mcp/'+pair.agentToken;
+  const call=(method,version)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json','MCP-Protocol-Version':version},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params:{protocolVersion:version}})});
+  for(const version of ['2025-06-18','2025-11-25']){const r=await call('initialize',version);assert.equal(r.status,200);assert.equal((await r.json()).result.protocolVersion,version);assert.equal((await call('tools/list',version)).status,200)}
+  const future=await call('initialize','2099-01-01');assert.equal(future.status,200);assert.equal((await future.json()).result.protocolVersion,'2025-11-25');
+  assert.equal((await call('tools/list','2099-01-01')).status,400);
+ }finally{await close(server)}
+});
