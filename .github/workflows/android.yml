@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [main, codex/background-ai-connection]
+    branches: [main, codex/native-ai-session]
   workflow_dispatch:
     inputs:
       ai_relay_url:
@@ -33,6 +33,11 @@ jobs:
           BUILD_TARGET: android
           VITE_COMMIT_SHA: ${{ github.sha }}
           VITE_AI_RELAY_URL: ${{ inputs.ai_relay_url || vars.AI_RELAY_URL }}
+      - name: Verify native JavaScript engine
+        run: |
+          curl -fsSL https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.7.15/rhino-1.7.15.jar -o /tmp/rhino.jar
+          cat native/ai-engine.js scripts/check-native-ai.js > /tmp/native-ai-suite.js
+          java -cp /tmp/rhino.jar org.mozilla.javascript.tools.shell.Main -version 200 -opt -1 /tmp/native-ai-suite.js
       - name: Verify layout in Chromium
         env:
           BUILD_TARGET: android
@@ -67,6 +72,10 @@ jobs:
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
           cp native/AiConnectionPlugin.java android/app/src/main/java/com/rtc/worddictation/AiConnectionPlugin.java
           cp native/AiConnectionService.java android/app/src/main/java/com/rtc/worddictation/AiConnectionService.java
+          cp native/AiWordStore.java android/app/src/main/java/com/rtc/worddictation/AiWordStore.java
+          mkdir -p android/app/src/test/java/com/rtc/worddictation
+          cp native/AiWordStoreTest.java android/app/src/test/java/com/rtc/worddictation/AiWordStoreTest.java
+          cp native/ai-engine.js android/app/src/main/assets/ai-engine.js
           cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
           cp native/InstallResultActivity.java android/app/src/main/java/com/rtc/worddictation/InstallResultActivity.java
           cp native/clear-web-cache.js android/app/src/main/assets/clear-web-cache.js
@@ -102,9 +111,9 @@ jobs:
               android:excludeFromRecents="true" />'''
           s=s.replace("</application>", activity+"\n    </application>")
 
-          permissions='\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n'
+          permissions='\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n'
           s=s.replace("<application", permissions+"\n    <application", 1)
-          service='''\n        <service android:name=".AiConnectionService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="dataSync" />'''
+          service='''\n        <service android:name=".AiConnectionService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled persistent remote command session: paired AI agents read and edit local wordbooks with durable operation receipts while the app is backgrounded. Ends when the user closes the app or unpairs. This is an interactive automation endpoint, not a periodic data synchronization job." /></service>'''
           s=s.replace("</application>", service+"\n    </application>")
           p.write_text(s)
           PY
@@ -123,9 +132,13 @@ jobs:
                   exclude group: 'com.github.k2-fsa.sherpa-onnx', module: 'sherpa-onnx-jvm'
               }
               implementation 'org.apache.commons:commons-compress:1.27.1'
+              implementation 'org.mozilla:rhino:1.7.15'
+              testImplementation 'junit:junit:4.13.2'
+              testImplementation 'org.robolectric:robolectric:4.14.1'
           }
 
           android {
+              testOptions { unitTests.includeAndroidResources = true }
               defaultConfig {
                   ndk {
                       abiFilters 'arm64-v8a'
@@ -174,7 +187,7 @@ jobs:
           test -n "$ANDROID_KEY_ALIAS"
           test -n "$ANDROID_KEY_PASSWORD"
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew testDebugUnitTest assembleRelease
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/release/app-release.apk word-dictation.apk
@@ -213,8 +226,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - Android 使用原生前台服务收发 AI 指令，切换其他应用时继续连接
-          - 通知栏显示连接及执行状态，固定配对保持不变
+          - AI 指令在原生后台执行，切换应用及锁屏后仍可操作词库
+          - 手动操作与 AI 共用原子保存，重试不重复导入
+          - 增加系统后台运行授权入口，退出软件停止连接
           - 系统停止后台服务后，回到应用自动恢复连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then

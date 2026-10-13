@@ -11,13 +11,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Native network loop. Word parsing/storage stays in the existing Capacitor app. */
+/** User-enabled remote command session, independent of the Activity and WebView. */
 public class AiConnectionService extends Service {
     public interface Observer { void event(JSONObject value); }
     public static volatile Observer observer;
     private static volatile AiConnectionService current;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final ConcurrentHashMap<String, CompletableFuture<JSONObject>> pending = new ConcurrentHashMap<>();
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile String owner, url, token;
     private volatile AtomicBoolean running = new AtomicBoolean(false);
@@ -25,12 +24,6 @@ public class AiConnectionService extends Service {
     private static final int NOTIFICATION = 18766;
     private static final String CHANNEL = "word_ai_connection";
 
-    public static void respond(String owner, String id, JSONObject response) {
-        AiConnectionService s = current;
-        if (s == null || !owner.equals(s.owner)) return;
-        CompletableFuture<JSONObject> wait = s.pending.get(id);
-        if (wait != null) wait.complete(response);
-    }
     public static void stopOwner(String owner) {
         AiConnectionService s = current;
         if (s != null && owner.equals(s.owner)) s.stopSelf();
@@ -60,21 +53,23 @@ public class AiConnectionService extends Service {
         main.post(() -> { Observer receiver = observer; if (receiver != null) receiver.event(event); });
     }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || observer == null) { stopSelf(); return START_NOT_STICKY; }
+        if (intent == null) { stopSelf(); return START_NOT_STICKY; }
         String nextOwner = intent.getStringExtra("owner"), nextUrl = intent.getStringExtra("url"), nextToken = intent.getStringExtra("token");
         if (nextOwner == null || nextUrl == null || nextToken == null || !nextUrl.startsWith("https://")) { stopSelf(); return START_NOT_STICKY; }
-        if (running.get() && nextOwner.equals(owner)) return START_NOT_STICKY;
-        running.set(false); disconnect(); pending.values().forEach(f -> f.completeExceptionally(new IOException("Reconnecting"))); pending.clear();
+        if (running.get() && nextOwner.equals(owner)) return START_REDELIVER_INTENT;
+        running.set(false); disconnect();
         owner = nextOwner; url = nextUrl; token = nextToken; AtomicBoolean session = new AtomicBoolean(true); running = session;
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION, notification("正在连接"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION, notification("正在连接"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(NOTIFICATION, notification("正在连接"));
-        worker.submit(() -> loop(session)); return START_NOT_STICKY;
+        worker.submit(() -> loop(session, nextOwner, nextUrl, nextToken)); return START_REDELIVER_INTENT;
     }
     private void sessionState(AtomicBoolean session, String value, String text) { if (running == session && session.get()) state(value, text); }
-    private void loop(AtomicBoolean session) {
-        String sessionOwner = owner, base = url, secret = token;
+    private void loop(AtomicBoolean session, String sessionOwner, String base, String secret) {
         JSONObject outbox = null; int failures = 0;
-        while (session.get() && observer != null) {
+        PowerManager.WakeLock lock = ((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WordDictation:AiSession");
+        lock.setReferenceCounted(false);
+        try { while (session.get()) {
+            lock.acquire(60000);
             try {
                 if (outbox != null) { request(base, secret, "/device/result", outbox); outbox = null; }
                 JSONArray rows = new JSONArray(request(base, secret, "/device/poll", null));
@@ -82,22 +77,25 @@ public class AiConnectionService extends Service {
                 failures = 0; sessionState(session, "ready", "已就绪 · 切换应用后仍可接收指令");
                 for (int i = 0; i < rows.length() && session.get(); i++) {
                     JSONObject row = rows.getJSONObject(i); String id = row.getString("id");
-                    CompletableFuture<JSONObject> wait = new CompletableFuture<>(); pending.put(id, wait);
-                    PowerManager.WakeLock lock = ((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WordDictation:AiOperation");
-                    try {
-                        lock.acquire(40000); sessionState(session, "working", "AI 正在操作词库");
-                        row.put("type", "request").put("owner", sessionOwner); emit(row);
-                        JSONObject response = wait.get(30, TimeUnit.SECONDS); response.put("id", id); outbox = response;
-                        request(base, secret, "/device/result", outbox); outbox = null;
-                    } finally { pending.remove(id, wait); if (lock.isHeld()) lock.release(); }
+                    sessionState(session, "working", "AI 正在操作词库");
+                    JSONObject transaction;
+                    try { transaction = AiWordStore.execute(this, row); }
+                    catch (Exception error) { transaction = new JSONObject().put("response", new JSONObject().put("error", "词库保存状态未确认，请用原指令编号查询或重试").put("data_changed", true)).put("changed", false); }
+                    JSONObject response = transaction.getJSONObject("response"); response.put("id", id); outbox = response;
+                    request(base, secret, "/device/result", outbox); outbox = null;
+                    JSONObject event = new JSONObject().put("type", "completed").put("owner", sessionOwner).put("request", row).put("response", response);
+                    if (transaction.optBoolean("changed")) event.put("snapshot", transaction.getJSONObject("state"));
+                    emit(event);
                 }
+                // The relay currently waits one second; keep idle polling below one request per second.
+                if (rows.length() == 0) Thread.sleep(4000);
             } catch (Unauthorized e) { if (!session.get()) break; sessionState(session, "revoked", "配对已失效，请打开应用处理"); session.set(false); main.post(() -> { if (running == session) stopSelf(); }); }
             catch (Exception e) {
                 if (!session.get()) break;
                 sessionState(session, "reconnecting", "连接中断，正在重连");
                 try { Thread.sleep(Math.min(15000, 1000L << Math.min(failures++, 4))); } catch (InterruptedException interrupted) { break; }
             }
-        }
+        } } finally { if (lock.isHeld()) lock.release(); }
     }
     private String request(String base, String secret, String path, JSONObject body) throws Exception {
         HttpURLConnection connection = (HttpURLConnection)new URL(base + path).openConnection(); activeConnection = connection;
@@ -121,7 +119,7 @@ public class AiConnectionService extends Service {
     @Override public void onTimeout(int startId, int foregroundServiceType) { state("reconnecting", "后台时限已到，打开应用可恢复连接"); stopSelf(); }
     @Override public void onTaskRemoved(Intent rootIntent) { stopSelf(); }
     @Override public void onDestroy() {
-        running.set(false); disconnect(); worker.shutdownNow(); pending.values().forEach(f -> f.completeExceptionally(new IOException("Service stopped"))); pending.clear();
+        running.set(false); disconnect(); worker.shutdownNow();
         if (current == this) current = null;
         stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy();
     }
