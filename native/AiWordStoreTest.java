@@ -2,6 +2,10 @@ package com.rtc.worddictation;
 
 import static org.junit.Assert.*;
 import android.content.Context;
+import android.content.Intent;
+import java.util.concurrent.*;
+import org.robolectric.Robolectric;
+import org.robolectric.Shadows;
 import org.json.*;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -41,4 +45,35 @@ public class AiWordStoreTest {
         AiWordStore.execute(context, importRequest());
         assertEquals(0, AiWordStore.load(context, null).getJSONArray("books").length());
     }
+    public static class FakeRemoteService extends AiConnectionService {
+        final CountDownLatch ack = new CountDownLatch(1);
+        JSONObject firstResponse;
+        int posts;
+        boolean delivered;
+        @Override protected String request(String base, String secret, String path, JSONObject body) throws Exception {
+            if (path.equals("/device/result")) {
+                posts++;
+                if (posts == 1) { firstResponse = new JSONObject(body.toString()); throw new java.io.IOException("Temporary outage"); }
+                assertEquals(firstResponse.toString(), body.toString()); ack.countDown(); return "{}";
+            }
+            if (!delivered) { delivered = true; return "[{\"id\":\"service-one\",\"name\":\"import_wordbook\",\"arguments\":{\"name\":\"后台\",\"text\":\"bank,银行\"}}]"; }
+            return "[]";
+        }
+    }
+    @Test public void serviceExecutesAndRetriesResultsWithoutPageThenStopsOnTaskRemoval() throws Exception {
+        AiConnectionService.observer = null;
+        FakeRemoteService service = Robolectric.buildService(FakeRemoteService.class).create().get();
+        try {
+            Intent intent = new Intent().putExtra("owner", "test").putExtra("url", "https://example.invalid").putExtra("token", "test-secret");
+            service.onStartCommand(intent, 0, 1);
+            assertTrue("background response not returned", service.ack.await(10, TimeUnit.SECONDS));
+            assertEquals(2, service.posts);
+            assertTrue(service.firstResponse.has("result"));
+            assertEquals(1, AiWordStore.load(context, null).getJSONArray("books").length());
+            assertFalse(Shadows.shadowOf(service).isStoppedBySelf());
+            service.onTaskRemoved(new Intent());
+            assertTrue(Shadows.shadowOf(service).isStoppedBySelf());
+        } finally { service.onDestroy(); }
+    }
+
 }

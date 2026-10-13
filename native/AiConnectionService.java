@@ -97,7 +97,7 @@ public class AiConnectionService extends Service {
             }
         } } finally { if (lock.isHeld()) lock.release(); }
     }
-    private String request(String base, String secret, String path, JSONObject body) throws Exception {
+    protected String request(String base, String secret, String path, JSONObject body) throws Exception {
         HttpURLConnection connection = (HttpURLConnection)new URL(base + path).openConnection(); activeConnection = connection;
         try {
             connection.setConnectTimeout(10000); connection.setReadTimeout(15000); connection.setInstanceFollowRedirects(false);

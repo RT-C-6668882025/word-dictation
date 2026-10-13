@@ -23,5 +23,8 @@
  assert(call('import_wordbook',{name:'empty',text:'no words'}).response.error,'empty import');
  assert(call('create_temp_wordbook',{name:'短语',text:'| English | Chinese |\n| --- | --- |\n| take care | 照顾 |'}).response.result.name==='[临时] 短语','same Markdown parser');
  assert(state.revision===5,'revision advances only on committed mutations');
+ var special=call('import_wordbook',{name:'编号测试',text:'test,测试'},'__proto__');
+ assert(special.changed,'special operation id');
+ assert(!call('import_wordbook',{name:'编号测试',text:'test,测试'},'__proto__').changed,'special operation id replay');
  print('Native engine: imports, replay, conflict, whitelist, validation and parser passed');
 })();
