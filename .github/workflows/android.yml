@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [main, codex/native-ai-session]
+    branches: [main, codex/general-memory-cards]
   workflow_dispatch:
     inputs:
       ai_relay_url:
@@ -48,6 +48,7 @@ jobs:
           node scripts/check-layout.cjs
           node scripts/check-whitelist.cjs
           node scripts/check-ai-ui.cjs
+          node scripts/check-cards-ui.cjs
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,9 +227,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - AI 指令在原生后台执行，切换应用及锁屏后仍可操作词库
-          - 手动操作与 AI 共用原子保存，重试不重复导入
-          - 增加系统后台运行授权入口，退出软件停止连接
+          - 支持任意语言的正面/背面卡片，兼容原有词库和白名单
+          - 支持长段落、Markdown、代码和公式，统一两面排版
+          - 保持分页、多条展示、逐条显隐及后台 AI 连接
           - 系统停止后台服务后，回到应用自动恢复连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then

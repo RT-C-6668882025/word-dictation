@@ -21,12 +21,14 @@ jobs:
       - run: npm run build
       - run: node --test mcp/relay.test.mjs
       - run: npx --yes tsx scripts/check-ai.ts
+      - run: npx --yes tsx scripts/check-card-parser.ts
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - run: node scripts/check-native-cache.cjs
       - run: node scripts/check-layout.cjs
       - run: node scripts/check-whitelist.cjs
       - run: node scripts/check-ai-ui.cjs
+      - run: node scripts/check-cards-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

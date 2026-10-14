@@ -7,9 +7,9 @@ const string={type:'string'};
 const schema=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const tools=[
  {name:'list_wordbooks',description:'查看设备词库 ID、名称、数量。',inputSchema:schema({})},
- {name:'get_words',description:'分页读取单词、中英文、白名单状态。AI 据此随机或按主题选词。',inputSchema:schema({book_id:string,query:string,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:500}},['book_id'])},
+ {name:'get_words',description:'分页读取卡片正面 front、背面 back、format 和白名单状态。旧 en/zh 字段保留兼容。',inputSchema:schema({book_id:string,query:string,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:500}},['book_id'])},
  ...['add_to_whitelist','remove_from_whitelist'].map(name=>({name,description:name==='add_to_whitelist'?'加入需要背的词，返回实际新增 changed_ids。撤销抽查只移出这些 ID。':'移出指定词，保留其余白名单。',inputSchema:schema({operation_id:{type:'string',description:'本次操作的唯一编号；超时重试必须使用同一编号。'},book_id:string,word_ids:{type:'array',items:string,minItems:1,maxItems:500}},['book_id','word_ids'])})),
- ...['import_wordbook','create_temp_wordbook'].map(name=>({name,description:'AI 将资料转换为每行英文+中文 text，调用原解析器创建普通词库。临时词库仅带名称标记，原界面可以删除。',inputSchema:schema({operation_id:{type:'string',description:'本次导入的唯一编号；超时重试必须使用同一编号，防止重复创建。'},name:string,text:string,page_size:{type:'integer',minimum:10,maximum:200}},['name','text'])}))
+ ...['import_wordbook','create_temp_wordbook'].map(name=>({name,description:'AI 将任意语言资料整理成正面/背面卡片。text 可为每行正面+背面 CSV，长段落、代码、公式用 JSON 数组 [{front,back,format:"text"或"markdown"}]，保留换行；Markdown 公式用 $ 或 $$。不限制语种和单词/问答等用途。临时词库仅带名称标记，原界面可以删除。',inputSchema:schema({operation_id:{type:'string',description:'本次导入的唯一编号；超时重试必须使用同一编号，防止重复创建。'},name:string,text:string,page_size:{type:'integer',minimum:10,maximum:200}},['name','text'])}))
 ];
 tools.push({name:'get_operation_result',description:'按 request_id 查询指令是否执行及其保存结果，不重复执行。结果保留 7 天。',inputSchema:schema({request_id:string},['request_id'])});
 const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;

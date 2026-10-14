@@ -11,7 +11,7 @@ const fs=require('node:fs');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4182');
   await page.evaluate(()=>{const words=Array.from({length:25},(_,i)=>({id:'w'+i,en:'word'+i,zh:'释义'+i}));localStorage.setItem('wd_books_v2',JSON.stringify([{id:'a',name:'白名单交互检查',pageSize:10,words,whitelist:{'0':words.slice(0,10).map(w=>w.id),'1':words.slice(10,20).map(w=>w.id),'2':words.slice(20).map(w=>w.id)}},{id:'b',name:'另一词库',pageSize:10,words:[{id:'other',en:'other',zh:'其他'}],whitelist:{'0':['other']}}]))});
   await page.reload();if(process.env.TEST_FONT_CSS){await page.addStyleTag({path:process.env.TEST_FONT_CSS});await page.evaluate(()=>document.fonts.ready)}
-  await page.locator('.book').first().click();await page.locator('.countControl button').getByText('10',{exact:true}).click();await page.locator('.seg button').getByText('英文',{exact:true}).click();
+  await page.locator('.book').first().click();await page.locator('.countControl button').getByText('10',{exact:true}).click();await page.locator('.seg button').getByText('正面',{exact:true}).click();
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('wd_books_v2')));
   const ids=()=>page.locator('.num').allTextContents();const refresh=()=>page.getByRole('button',{name:'刷新当前页',exact:true}).click();
   fs.mkdirSync('layout-checks',{recursive:true});
@@ -45,7 +45,7 @@ const fs=require('node:fs');
   assert.equal(await page.locator('.need[aria-pressed="true"]').count(),9);assert.equal(await page.locator('.card').count(),9);
   await page.locator('.need').first().click();assert.equal(await page.locator('.need[aria-pressed="true"]').count(),8);
   await page.locator('.need').first().click();await refresh();assert.equal(await page.locator('.card').count(),0);
-  await page.getByRole('button',{name:'查看本页全部单词',exact:true}).click();assert.equal(await page.locator('.card').count(),10);assert.equal(await page.locator('.need[aria-pressed="true"]').count(),10);
+  await page.getByRole('button',{name:'查看本页全部条目',exact:true}).click();assert.equal(await page.locator('.card').count(),10);assert.equal(await page.locator('.need[aria-pressed="true"]').count(),10);
   await page.locator('.need').first().click();assert.equal(await page.locator('.card').count(),10);await refresh();assert.equal(await page.locator('.card').count(),10,'all-words view lost excluded words');
   await page.locator('.scopeControl button').getByText('白名单',{exact:true}).click();assert.deepEqual(await ids(),['011']);
   assert.deepEqual((await saved())[0].whitelist['1'],['w10']);assert.deepEqual((await saved())[1].whitelist,{'0':['other']});

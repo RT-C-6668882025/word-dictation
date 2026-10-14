@@ -28,3 +28,18 @@
  assert(!call('import_wordbook',{name:'编号测试',text:'test,测试'},'__proto__').changed,'special operation id replay');
  print('Native engine: imports, replay, conflict, whitelist, validation and parser passed');
 })();
+(function(){
+ var cards=[{front:'日本語の質問',back:'日本語の答え'},{front:'机会成本是什么？',back:'放弃的最佳替代方案的价值。'},{front:'ما هي الذاكرة؟',back:'القدرة على تذكر المعلومات'},{front:'长问题\n第二行',back:new Array(1201).join('长答案\n'),format:'markdown'},{front:'函数返回什么？',back:'```js\nreturn 42;\n```\n\n$$a^2+b^2=c^2$$',format:'markdown'}];
+ var state={books:[],receipts:{}},request={id:'universal',name:'import_wordbook',arguments:{name:'通用卡片',text:JSON.stringify(cards)}};
+ var result=JSON.parse(WordAiEngine.transact(JSON.stringify(state),JSON.stringify(request)));
+ if(result.response.error||result.response.result.count!==5)throw Error('universal import failed');
+ var book=result.state.books[0];
+ if(book.words[3].back!==cards[3].back.trim()||book.words[4].format!=='markdown')throw Error('content lost');
+ var query={id:'read-universal',name:'get_words',arguments:{book_id:book.id,query:'日本語'}};
+ var read=JSON.parse(WordAiEngine.transact(JSON.stringify(result.state),JSON.stringify(query)));
+ if(read.response.result.words[0].front!==cards[0].front)throw Error('generic query');
+ request.id='bad-universal';request.arguments.text=JSON.stringify([cards[0],{front:'missing back'}]);
+ var failed=JSON.parse(WordAiEngine.transact(JSON.stringify(result.state),JSON.stringify(request)));
+ if(!failed.response.error||failed.state.books.length!==1)throw Error('malformed cards must not partially save');
+ print('Native universal cards: languages, long text, Markdown, query and atomic validation passed');
+})();
