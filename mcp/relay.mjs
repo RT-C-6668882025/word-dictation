@@ -5,7 +5,18 @@ import {dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const string={type:'string'};
 const schema=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
+const mutationId={type:'string',description:'本次操作的唯一编号；超时重试使用原编号，修改参数使用新编号。'};
+const cardProperties={front:string,back:string,format:{type:'string',enum:['text','markdown']}};
+const management=[
+ {name:'add_cards',description:'向现有词库批量新增卡片，支持任意语言、多行及 Markdown；重复正文也保留为独立卡片。position 从 1 开始，省略时追加；in_whitelist 默认 true。保留已有卡片 ID 和白名单。',inputSchema:schema({operation_id:mutationId,book_id:string,cards:{type:'array',minItems:1,maxItems:500,items:schema(cardProperties,['front','back'])},position:{type:'integer',minimum:1},in_whitelist:{type:'boolean'}},['operation_id','book_id','cards'])},
+ {name:'update_cards',description:'按 word_id 批量修改正面、背面或 format，保留内容 ID 和白名单。整批验证，任意一项错误都不保存。',inputSchema:schema({operation_id:mutationId,book_id:string,cards:{type:'array',minItems:1,maxItems:500,items:schema({word_id:string,...cardProperties},['word_id'])}},['operation_id','book_id','cards'])},
+ {name:'delete_cards',description:'仅在用户明确要求删除内容时使用。按 ID 批量删除卡片，重新分页并保留其余卡片和白名单；无效 ID 会拒绝整批。不会删除云硬盘原资料。',inputSchema:schema({operation_id:mutationId,book_id:string,word_ids:{type:'array',minItems:1,maxItems:500,items:string}},['operation_id','book_id','word_ids'])},
+ {name:'merge_wordbooks',description:'将 2–20 个词库按 book_ids 顺序合并为新词库，始终保留原词库。保留各条内容及其白名单状态，不按正文去重；冲突的内容 ID 自动重新分配。',inputSchema:schema({operation_id:mutationId,book_ids:{type:'array',minItems:2,maxItems:20,uniqueItems:true,items:string},name:string,page_size:{type:'integer',minimum:10,maximum:200}},['operation_id','book_ids','name'])},
+ {name:'split_wordbook',description:'将指定卡片按原顺序分到新词库，保留白名单状态。默认复制并保留原词库；仅用户明确要求移动时 move=true，且 expected_name 必须匹配原词库当前名称；移动可留下空词库，不自动删除。',inputSchema:schema({operation_id:mutationId,book_id:string,word_ids:{type:'array',minItems:1,maxItems:500,items:string},name:string,page_size:{type:'integer',minimum:10,maximum:200},move:{type:'boolean'},expected_name:string},['operation_id','book_id','word_ids','name'])},
+ {name:'set_wordbook_page_size',description:'调整词库每页条数（10–200），重新分页，保留所有卡片 ID、顺序、正文和白名单状态。',inputSchema:schema({operation_id:mutationId,book_id:string,page_size:{type:'integer',minimum:10,maximum:200}},['operation_id','book_id','page_size'])}
+];
 export const tools=[
+ ...management,
  {name:'list_wordbooks',description:'查看设备词库 ID、名称、数量。',inputSchema:schema({})},
  {name:'delete_wordbook',description:'删除指定词库及其内容和白名单。仅在用户明确要求删除时调用；先 list_wordbooks 确定 ID，同名词库有多个且目标不明确时先澄清，expected_name 必须与当前名称一致，避免删错。operation_id 必填，超时先查回执并使用原编号重试。不会删除 Agent 或云硬盘的原资料。',inputSchema:schema({operation_id:string,book_id:string,expected_name:string},['operation_id','book_id','expected_name'])},
  {name:'rename_wordbook',description:'重命名词库，保留 ID、内容、分页和白名单。name 为新名称，operation_id 必填，超时使用原编号重试。',inputSchema:schema({operation_id:string,book_id:string,name:string},['operation_id','book_id','name'])},
@@ -17,7 +28,7 @@ export const tools=[
 tools.push({name:'get_operation_result',description:'按 request_id 查询指令是否执行及其保存结果，不重复执行。结果保留 7 天。',inputSchema:schema({request_id:string},['request_id'])});
 const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 const fingerprint=(name,args)=>createHash('sha256').update(JSON.stringify(canonical([name,args]))).digest('hex');
-const MUTATIONS=new Set(['delete_wordbook','rename_wordbook','add_to_whitelist','remove_from_whitelist','import_wordbook','create_temp_wordbook']);
+const MUTATIONS=new Set([...management.map(t=>t.name),'delete_wordbook','rename_wordbook','add_to_whitelist','remove_from_whitelist','import_wordbook','create_temp_wordbook']);
 export function createRelay({origins=[],timeout=25000,maxSessions=1000,dataFile=null,offlineAfter=20000,deliveryLease=20000,retention=7*86400000,pollWait=1000}={}){
  const sessions=new Map(),devices=new Map();
  const save=()=>{if(!dataFile)return;mkdirSync(dirname(dataFile),{recursive:true,mode:0o700});const snapshot=[...sessions.values()].map(s=>({agent:s.agent,device:s.device,records:[...s.records.values()]}));const tmp=dataFile+'.tmp';writeFileSync(tmp,JSON.stringify({version:2,sessions:snapshot}),{mode:0o600});chmodSync(tmp,0o600);const fd=openSync(tmp,'r');try{fsyncSync(fd)}finally{closeSync(fd)}renameSync(tmp,dataFile);const dir=openSync(dirname(dataFile),'r');try{fsyncSync(dir)}finally{closeSync(dir)}};
@@ -70,7 +81,7 @@ export function createRelay({origins=[],timeout=25000,maxSessions=1000,dataFile=
   if(m.method==='tools/call'){
    const name=m.params?.name,args=m.params?.arguments||{};if(!tools.some(t=>t.name===name))return toolReply({status:'failed',error:'未知工具',data_changed:false});
    if(name==='get_operation_result'){const r=s.records.get(args.request_id);return toolReply(r?view(r):{request_id:args.request_id,status:'not_found',error:'未找到记录，不能据此断言指令未执行',data_changed:'unknown'})}
-   if(['delete_wordbook','rename_wordbook'].includes(name)&&!args.operation_id)return toolReply({status:'failed',error:'此操作必须提供 operation_id',data_changed:false});
+   if((management.some(t=>t.name===name)||['delete_wordbook','rename_wordbook'].includes(name))&&!args.operation_id)return toolReply({status:'failed',error:'此操作必须提供 operation_id',data_changed:false});
    const id=args.operation_id||randomUUID();if(typeof id!=='string'||!/^[A-Za-z0-9_.:-]{1,128}$/.test(id))return toolReply({status:'failed',error:'operation_id 需为 1–128 位字母、数字或 _ . : -',data_changed:false});
    const input={...args};delete input.operation_id;const fp=fingerprint(name,input);let r=s.records.get(id);
    if(r&&r.fingerprint!==fp)return toolReply({request_id:id,status:'conflict',error:'编号已被其他指令使用',data_changed:false});

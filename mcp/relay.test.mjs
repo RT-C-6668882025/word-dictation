@@ -35,7 +35,7 @@ test('pairing and completed results survive server restart; leased delivery retr
 
 test('management mutations require operation IDs and removed attachment tools are unavailable',async()=>{
  const {server,base}=await launch();try{const pair=await json(base+'/pair',{method:'POST'}),c=client(base,pair);await c.poll();
- for(const name of ['delete_wordbook','rename_wordbook']){const r=await c.rpc(name,{book_id:'book',name:'new',expected_name:'old'});assert.equal(r.status,'failed');assert.equal(r.data_changed,false);assert.match(r.error,/operation_id/)}
+ for(const name of ['delete_wordbook','rename_wordbook','add_cards','update_cards','delete_cards','merge_wordbooks','split_wordbook','set_wordbook_page_size']){const r=await c.rpc(name,{book_id:'book',name:'new',expected_name:'old'});assert.equal(r.status,'failed');assert.equal(r.data_changed,false);assert.match(r.error,/operation_id/)}
  assert.equal((await c.rpc('get_attachment',{})).status,'failed');assert.equal((await c.rpc('upload_attachment',{})).status,'failed');assert.deepEqual(await c.poll(),[]);
  }finally{await close(server)}
 });

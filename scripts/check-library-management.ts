@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {executeAi} from '../src/aiOperations';
+import type {Book} from '../src/wordbook';
+const make=(id:string):Book=>({id,name:id,pageSize:10,words:Array.from({length:25},(_,i)=>({id:'w'+i,en:'Q'+i,zh:'A'+i})),whitelist:{'0':['w0','w9'],'1':['w10','w19'],'2':['w24']}});
+let books=[make('a'),make('b')];const needed=(b:Book)=>b.words.filter((w,i)=>(b.whitelist[String(Math.floor(i/b.pageSize))]||[]).includes(w.id)).map(w=>w.id);
+const ops={books:()=>books,replaceBooks:(next:Book[])=>{books=next},change:()=>[],import:()=>{throw Error('not used')}};
+const call=(name:string,args:any)=>executeAi(name,args,ops) as Promise<any>;
+const beforeNeeds=needed(books[0]);const originalWords=JSON.stringify(books[0].words);
+const page=await call('set_wordbook_page_size',{book_id:'a',page_size:17});assert.equal(page.page_size,17);assert.deepEqual(needed(books[0]),beforeNeeds);assert.equal(JSON.stringify(books[0].words),originalWords);
+const add=await call('add_cards',{book_id:'a',position:2,in_whitelist:false,cards:[{front:'日本語',back:'答え'},{front:'日本語',back:'答え'}]});assert.equal(add.added_count,2);assert.equal(new Set(add.added_ids).size,2);assert.equal(books[0].words[1].front,'日本語');assert.deepEqual(needed(books[0]),beforeNeeds);
+const patch=await call('update_cards',{book_id:'a',cards:[{word_id:'w10',front:'多行\n问题',back:'```js\nx=1\n```',format:'markdown'}]});assert.equal(patch.changed_count,1);assert.equal(books[0].words.find(w=>w.id==='w10')?.front,'多行\n问题');assert.deepEqual(needed(books[0]),beforeNeeds);
+const beforeBad=JSON.stringify(books);await assert.rejects(()=>call('update_cards',{book_id:'a',cards:[{word_id:'w0',front:'修改'},{word_id:'bad',back:'bad'}]}));assert.equal(JSON.stringify(books),beforeBad);
+await assert.rejects(()=>call('delete_cards',{book_id:'a',word_ids:['w0','bad']}));assert.equal(JSON.stringify(books),beforeBad);
+const copied=await call('split_wordbook',{book_id:'a',word_ids:['w10','w0'],name:'复制'});assert.equal(copied.moved,false);assert.deepEqual(books.find(b=>b.id===copied.book_id)!.words.map(w=>w.id),['w0','w10']);assert.equal(books[0].words.length,27);
+await assert.rejects(()=>call('split_wordbook',{book_id:'a',word_ids:['w0'],name:'移动',move:true,expected_name:'wrong'}));
+const moved=await call('split_wordbook',{book_id:'a',word_ids:['w0','w19'],name:'移动',move:true,expected_name:'a'});assert.equal(moved.moved,true);assert(!books[0].words.some(w=>w.id==='w0'));assert.deepEqual(needed(books.find(b=>b.id===moved.book_id)!),['w0','w19']);assert.deepEqual(needed(books[0]),['w9','w10','w24']);
+const merged=await call('merge_wordbooks',{book_ids:['a','b'],name:'合并',page_size:11});const resultBook=books.find(b=>b.id===merged.book_id)!;assert.equal(resultBook.words.length,50);assert.equal(new Set(resultBook.words.map(w=>w.id)).size,50);assert.equal(needed(resultBook).length,8);assert.equal(merged.sources_preserved,true);assert(merged.reassigned_id_count>0);assert(books.some(b=>b.id==='a')&&books.some(b=>b.id==='b'));
+const removed=await call('delete_cards',{book_id:'a',word_ids:['w9','w9','w24']});assert.equal(removed.deleted_count,2);assert.deepEqual(needed(books[0]),['w10']);
+for(const [tool,args] of [['set_wordbook_page_size',{book_id:'a',page_size:9}],['merge_wordbooks',{book_ids:['a','a'],name:'bad'}],['add_cards',{book_id:'a',cards:[{front:'Q'}]}],['update_cards',{book_id:'a',cards:[{word_id:'w10'}]}]] as const){const before=JSON.stringify(books);await assert.rejects(()=>call(tool,args));assert.equal(JSON.stringify(books),before)}
+const final=JSON.stringify(books);await assert.rejects(()=>executeAi('delete_cards',{book_id:'a',word_ids:['w10']},{...ops,replaceBooks:async()=>{throw Error('disk failed')}}));assert.equal(JSON.stringify(books),final);
+console.log('PASS full library management: atomic batches, duplicate text, IDs, whitelist across pages, collision-safe merge, copy/move, validation and failed persistence');

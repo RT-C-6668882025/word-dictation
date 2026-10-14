@@ -21,6 +21,7 @@ jobs:
       - run: npm run build
       - run: node --test mcp/relay.test.mjs
       - run: npx --yes tsx scripts/check-ai.ts
+      - run: npx --yes tsx scripts/check-library-management.ts
       - run: npx --yes tsx scripts/check-card-parser.ts
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium

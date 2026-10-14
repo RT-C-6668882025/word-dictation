@@ -1,7 +1,9 @@
+import {managementTools,planManagement} from './libraryManagement';
 import{frontText,backText}from'./parser';
 import type {Book} from './wordbook';
-export type Operations={remove?:(book:Book)=>void|Promise<void>;rename?:(book:Book,name:string)=>void|Promise<void>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
+export type Operations={replaceBooks?:(books:Book[],changedIds:string[])=>void|Promise<void>;remove?:(book:Book)=>void|Promise<void>;rename?:(book:Book,name:string)=>void|Promise<void>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
 export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
+ if(managementTools.includes(name)){if(!ops.replaceBooks)throw Error('此执行环境不支持词库管理');const plan=planManagement(name,a,ops.books());return mapResult(ops.replaceBooks(plan.books,plan.changedIds),()=>plan.result)}
  if(name==='list_wordbooks')return ops.books().map(b=>({id:b.id,name:b.name,count:b.words.length,pageSize:b.pageSize}));
  if(name==='import_wordbook'||name==='create_temp_wordbook'){
   if(typeof a.text!=='string'||!a.text.trim()||typeof a.name!=='string'||!a.name.trim())throw Error('需要词库名称和正面/背面卡片 text');

@@ -38,6 +38,7 @@ jobs:
           curl -fsSL https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.7.15/rhino-1.7.15.jar -o /tmp/rhino.jar
           cat native/ai-engine.js scripts/check-native-ai.js > /tmp/native-ai-suite.js
           java -cp /tmp/rhino.jar org.mozilla.javascript.tools.shell.Main -version 200 -opt -1 /tmp/native-ai-suite.js
+          npx --yes tsx scripts/check-library-management.ts
       - name: Verify layout in Chromium
         env:
           BUILD_TARGET: android
