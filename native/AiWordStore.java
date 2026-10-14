@@ -37,6 +37,9 @@ public final class AiWordStore {
         if (request.optString("name").equals("upload_attachment")) {
             JSONObject args=request.getJSONObject("arguments"),response=new JSONObject();boolean changed=false;
             try {
+                String fingerprint=attachmentFingerprint(args),requestId=request.getString("id");JSONObject receipts=state.optJSONObject("receipts");if(receipts==null)receipts=new JSONObject();
+                JSONObject previous=receipts.optJSONObject(requestId);
+                if(previous!=null){if(!fingerprint.equals(previous.optString("fingerprint")))throw new IOException("指令编号已被用于其他内容");save(context,state);return new JSONObject().put("response",new JSONObject().put("result",previous.getJSONObject("result"))).put("state",state).put("changed",false);}
                 JSONArray books=state.getJSONArray("books");JSONObject target=null;
                 for(int b=0;b<books.length();b++){JSONObject book=books.getJSONObject(b);if(!book.getString("id").equals(args.optString("book_id")))continue;JSONArray words=book.getJSONArray("words");for(int i=0;i<words.length();i++)if(words.getJSONObject(i).getString("id").equals(args.optString("word_id")))target=words.getJSONObject(i);}
                 if(target==null)throw new IOException("内容不存在");String name=args.getString("name"),side=args.getString("side");
@@ -47,7 +50,12 @@ public final class AiWordStore {
                 if(!exists&&attachments.length()>=20)throw new IOException("每条卡片最多 20 个附件");
                 JSONObject writeArgs=new JSONObject(args.toString()).put("id",args.getString("attachment_id")).put("data",args.getString("data_base64"));
                 JSONObject result=AttachmentStore.write(context,writeArgs);
-                if(args.getBoolean("final")){if(!exists){attachments.put(attachment);target.put("attachments",attachments);state.put("revision",state.optLong("revision")+1);changed=true;}save(context,state);result.put("attachment",attachment).put("book_id",args.getString("book_id")).put("word_id",args.getString("word_id"));}
+                if(args.getBoolean("final")){
+                    if(!exists){attachments.put(attachment);target.put("attachments",attachments);state.put("revision",state.optLong("revision")+1);changed=true;}
+                    result.put("attachment",attachment).put("book_id",args.getString("book_id")).put("word_id",args.getString("word_id"));
+                    java.util.Iterator<String> keys=receipts.keys();java.util.List<String> expired=new java.util.ArrayList<>();while(keys.hasNext()){String key=keys.next();if(System.currentTimeMillis()-receipts.getJSONObject(key).optLong("created")>7L*86400000)expired.add(key);}for(String key:expired)receipts.remove(key);
+                    receipts.put(requestId,new JSONObject().put("fingerprint",fingerprint).put("result",result).put("created",System.currentTimeMillis()));state.put("receipts",receipts);save(context,state);
+                }
                 response.put("result",result);
             }catch(Exception e){response.put("error",e.getMessage()).put("data_changed",changed);}
             return new JSONObject().put("response",response).put("state",state).put("changed",changed);
@@ -77,5 +85,10 @@ public final class AiWordStore {
             if (transaction.getBoolean("changed") || (response.optJSONObject("result") != null && response.getJSONObject("result").optBoolean("saved"))) save(context, transaction.getJSONObject("state"));
             return transaction;
         } finally { org.mozilla.javascript.Context.exit(); }
+    }
+
+    private static String attachmentFingerprint(JSONObject args) throws Exception {
+        String[] keys=JSONObject.getNames(args);if(keys==null)keys=new String[0];java.util.Arrays.sort(keys);JSONArray pairs=new JSONArray();for(String key:keys)pairs.put(new JSONArray().put(key).put(args.get(key)));
+        byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(pairs.toString().getBytes(StandardCharsets.UTF_8));StringBuilder value=new StringBuilder("attachment:");for(byte b:hash)value.append(String.format("%02x",b&255));return value.toString();
     }
 }

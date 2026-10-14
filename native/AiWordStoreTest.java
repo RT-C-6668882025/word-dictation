@@ -87,6 +87,8 @@ public class AiWordStoreTest {
         JSONObject readArgs=new JSONObject().put("book_id",bookId).put("word_id",wordId).put("attachment_id",id).put("mode","bytes").put("limit",2);
         JSONObject read=AiWordStore.execute(context,new JSONObject().put("id","read").put("name","get_attachment").put("arguments",readArgs));assertEquals("YWI=",read.getJSONObject("response").getJSONObject("result").getString("data"));assertEquals(2,read.getJSONObject("response").getJSONObject("result").getInt("next_offset"));
         readArgs.put("book_id","other");assertTrue(AiWordStore.execute(context,new JSONObject().put("name","get_attachment").put("arguments",readArgs)).getJSONObject("response").has("error"));
+        JSONObject state=AiWordStore.load(context,null);state.getJSONArray("books").getJSONObject(0).getJSONArray("words").getJSONObject(0).put("attachments",new JSONArray());AiWordStore.saveBooks(context,state.getLong("revision"),state.getJSONArray("books"));
+        assertFalse(AiWordStore.execute(context,request).getBoolean("changed"));assertEquals(0,AiWordStore.load(context,null).getJSONArray("books").getJSONObject(0).getJSONArray("words").getJSONObject(0).getJSONArray("attachments").length());
         args.put("data_base64","ZGVm");assertTrue(AiWordStore.execute(context,request).getJSONObject("response").has("error"));
     }
 }
