@@ -17,3 +17,16 @@ console.log('AI operations, counts and persistence failure passed');
 const longBooks:Book[]=[{id:'long',name:'长卡片',pageSize:50,whitelist:{},words:Array.from({length:40},(_,i)=>({id:'long'+i,front:'Q'+i,back:'长内容'.repeat(3000)}))}];
 let offset=0,read=0;do{const page=await executeAi('get_words',{book_id:'long',offset,limit:40},{...ops,books:()=>longBooks}) as any;assert(page.words.length>0);assert(Buffer.byteLength(JSON.stringify(page))<800000);assert.equal(page.words[0].back,longBooks[0].words[offset].back);read+=page.words.length;offset=page.next_offset}while(offset!==null);assert.equal(read,40);
 console.log('Long-card MCP pagination returns complete cards within transport capacity');
+
+const unchanged=JSON.stringify(books);
+const search=await executeAi('search_wordbook',{book_id:'a',query:'释义10'},ops) as any;
+assert.equal(search.total,1);assert.equal(search.matches[0].entry_number,11);assert.equal(search.matches[0].book_name,'A');assert.equal(search.matches[0].page,2);assert.deepEqual(search.matches[0].context.map((r:any)=>r.entry_number),[10,12]);
+const numbered=await executeAi('search_wordbook',{book_id:'a',entry_number:1,context:3},ops) as any;assert.equal(numbered.matches[0].context.length,3);
+const cross=await executeAi('search_wordbook',{query:'银行'},ops) as any;assert.equal(cross.matches[0].book_name,'[临时] 金融');
+const noHit=await executeAi('search_wordbook',{query:'missing-value'},ops) as any;assert.equal(noHit.total,0);assert.equal(noHit.found,false);assert.deepEqual(noHit.matches,[]);
+const ids=await executeAi('search_wordbook',{book_id:'a',word_ids:['w10','w24'],limit:1,context:0},ops) as any;assert.equal(ids.next_offset,1);assert.equal(ids.matches[0].word_id,'w10');
+assert.equal((await executeAi('search_wordbook',{book_id:'a',word_ids:['w10','w24'],offset:1,limit:1},ops) as any).matches[0].word_id,'w24');
+for(const args of [{entry_number:1},{book_id:'missing'},{book_id:'a',entry_number:26},{context:4},{query:1},{book_id:'a',word_ids:['bad']}])await assert.rejects(()=>executeAi('search_wordbook',args,ops));
+assert.equal(JSON.stringify(books),unchanged);
+let searchOffset=0,searchCount=0;do{const page=await executeAi('search_wordbook',{book_id:'long',offset:searchOffset,limit:40,context:1},{...ops,books:()=>longBooks}) as any;assert(Buffer.byteLength(JSON.stringify(page))<800000);assert.equal(page.matches[0].back,longBooks[0].words[searchOffset].back);searchCount+=page.matches.length;searchOffset=page.next_offset}while(searchOffset!==null);assert.equal(searchCount,40);
+console.log('Search citations, context, filters, pagination, empty results and read-only behavior passed');

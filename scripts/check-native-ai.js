@@ -13,6 +13,8 @@
  assert(removed.response.result.changed_count===1&&removed.response.result.requested_count===1,'remove count');
  var query=call('get_words',{book_id:book.id,query:'bank'});
  assert(query.response.result.words[0].in_whitelist===false,'actual membership');
+ var searched=call('search_wordbook',{book_id:book.id,query:'银行'});
+ assert(!searched.changed&&searched.response.result.matches[0].entry_number===1&&searched.response.result.matches[0].context.length===1,'native search sources and context');
  var before=JSON.stringify(state);
  assert(call('add_to_whitelist',{book_id:book.id,word_ids:[word.id,'missing']}).response.error,'invalid ID');
  assert(JSON.stringify(state)===before,'all-or-nothing invalid mutation');
