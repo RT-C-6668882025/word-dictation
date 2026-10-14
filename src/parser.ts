@@ -9,8 +9,8 @@ const clean=(v:unknown)=>String(v??'').replace(/^\uFEFF/,'').trim();
 const fronts=/^(front|prompt|question|正面|提示|问题|english|英文|word|words|单词|词汇|vocabulary)$/i;
 const backs=/^(back|answer|背面|答案|chinese|中文|meaning|meanings|释义|意思|翻译)$/i;
 const separator=(cells:string[])=>cells.length>0&&cells.every(x=>/^:?-{3,}:?$/.test(x.replace(/\s/g,'')));
-function card(front:unknown,back:unknown,format:'text'|'markdown'='text'):ParsedWord|null{
- const a=clean(front),b=clean(back);if(!a||!b)return null;
+function card(front:unknown,back:unknown,format:'text'|'markdown'='text',exact=false):ParsedWord|null{
+ const a=exact?String(front):clean(front),b=exact?String(back):clean(back);if(!a.trim()||!b.trim())return null;
  return {id:uid(),front:a,back:b,format};
 }
 function unique(cards:ParsedWord[]){const seen=new Set<string>();return cards.filter(c=>{const key=JSON.stringify([frontText(c),backText(c),c.format||'text']);if(seen.has(key))return false;seen.add(key);return true})}
@@ -32,7 +32,7 @@ export function parseText(raw:string):ParsedWord[]{
   return unique(rows.map((row:any,i:number)=>{if(!row||typeof row!=='object')throw Error(`第 ${i+1} 条卡片格式错误`);const a=row.front??row.prompt??row.question??row.en,b=row.back??row.answer??row.zh;
    if(typeof a!=='string'||typeof b!=='string')throw Error(`第 ${i+1} 条需要文本正面和背面`);
    if(row.format!==undefined&&row.format!=='text'&&row.format!=='markdown')throw Error(`第 ${i+1} 条 format 只能为 text 或 markdown`);
-   const value=card(a,b,row.format||'text');if(!value)throw Error(`第 ${i+1} 条正面或背面为空`);return value;
+   const value=card(a,b,row.format||'text',true);if(!value)throw Error(`第 ${i+1} 条正面或背面为空`);return value;
   }));
  }
  const lines=input.split(/\r?\n/).filter(x=>x.trim());

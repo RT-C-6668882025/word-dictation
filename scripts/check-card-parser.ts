@@ -12,3 +12,5 @@ const big='This is unrestricted content.\n'.repeat(2000).trim();const result=par
 assert.equal(frontText({id:'old',en:'legacy',zh:'旧数据'}),'legacy');
 assert.throws(()=>parseText('[{"front":"ok","back":"yes"},{"front":"missing"}]'));
 console.log('Parser passed: unrestricted languages, multiline CSV/JSON, long content, headers and legacy dictionaries');
+
+const indented='    return 42;\n\n';assert.equal(parseText(JSON.stringify([{front:'Q',back:indented}]))[0].back,indented);

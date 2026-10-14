@@ -34,7 +34,7 @@
  var result=JSON.parse(WordAiEngine.transact(JSON.stringify(state),JSON.stringify(request)));
  if(result.response.error||result.response.result.count!==5)throw Error('universal import failed');
  var book=result.state.books[0];
- if(book.words[3].back!==cards[3].back.trim()||book.words[4].format!=='markdown')throw Error('content lost');
+ if(book.words[3].back!==cards[3].back||book.words[4].format!=='markdown')throw Error('content lost');
  var query={id:'read-universal',name:'get_words',arguments:{book_id:book.id,query:'日本語'}};
  var read=JSON.parse(WordAiEngine.transact(JSON.stringify(result.state),JSON.stringify(query)));
  if(read.response.result.words[0].front!==cards[0].front)throw Error('generic query');
