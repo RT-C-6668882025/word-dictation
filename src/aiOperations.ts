@@ -1,9 +1,10 @@
+import{frontText,backText}from'./parser';
 import type {Book} from './wordbook';
 export type Operations={books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
 export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
  if(name==='list_wordbooks')return ops.books().map(b=>({id:b.id,name:b.name,count:b.words.length,pageSize:b.pageSize}));
  if(name==='import_wordbook'||name==='create_temp_wordbook'){
-  if(typeof a.text!=='string'||!a.text.trim()||typeof a.name!=='string'||!a.name.trim())throw Error('需要词库名称和中英词表 text');
+  if(typeof a.text!=='string'||!a.text.trim()||typeof a.name!=='string'||!a.name.trim())throw Error('需要词库名称和正面/背面卡片 text');
   const ps=a.page_size??50;if(!Number.isInteger(ps)||ps<10||ps>200)throw Error('page_size 必须为 10–200 的整数');
   return mapResult(ops.import(a.text,name==='create_temp_wordbook'?'[临时] '+a.name:a.name,ps),b=>({id:b.id,name:b.name,count:b.words.length,saved:true}));
  }
@@ -11,8 +12,10 @@ export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
  if(name==='get_words'){
   const offset=a.offset??0,limit=a.limit??200;if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>500)throw Error('offset >= 0；limit 为 1–500');
   if(a.query!==undefined&&typeof a.query!=='string')throw Error('query 必须为文本');
-  const q=(a.query||'').toLowerCase();const rows=b.words.map((w,i)=>({...w,page:Math.floor(i/b.pageSize)+1,in_whitelist:(b.whitelist[String(Math.floor(i/b.pageSize))]||[]).includes(w.id)})).filter(w=>!q||w.en.toLowerCase().includes(q)||w.zh.toLowerCase().includes(q));
-  return {total:rows.length,words:rows.slice(offset,offset+limit),next_offset:offset+limit<rows.length?offset+limit:null};
+  const q=(a.query||'').toLowerCase();const rows=b.words.map((w,i)=>({...w,front:frontText(w),back:backText(w),en:frontText(w),zh:backText(w),format:w.format||'text',page:Math.floor(i/b.pageSize)+1,in_whitelist:(b.whitelist[String(Math.floor(i/b.pageSize))]||[]).includes(w.id)})).filter(w=>!q||frontText(w).toLowerCase().includes(q)||backText(w).toLowerCase().includes(q));
+  // Keep long-card pages within the relay's request envelope; never clip card text.
+  const selected:typeof rows=[];let bytes=256;for(const row of rows.slice(offset,offset+limit)){const size=utf8Size(JSON.stringify(row))+1;if(bytes+size>800000){if(!selected.length)throw Error('单条卡片超过 MCP 单次响应容量，完整内容仍保存在设备中');break}selected.push(row);bytes+=size}
+  const next=offset+selected.length;return {total:rows.length,words:selected,next_offset:next<rows.length?next:null};
  }
  if(name==='add_to_whitelist'||name==='remove_from_whitelist'){
   if(!Array.isArray(a.word_ids)||!a.word_ids.length||a.word_ids.length>500||a.word_ids.some((x:any)=>typeof x!=='string'))throw Error('word_ids 需要 1–500 个单词 ID');
@@ -24,3 +27,5 @@ export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
 
 function mapResult<T>(value:T|Promise<T>,map:(v:T)=>any):any{return value&&typeof (value as any).then==='function'?(value as Promise<T>).then(map):map(value as T)}
 export async function executeAi(name:string,a:Record<string,any>,ops:Operations){return executeAiCore(name,a,ops)}
+
+function utf8Size(s:string){let bytes=0;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c<128)bytes++;else if(c<2048)bytes+=2;else if(c>=0xd800&&c<=0xdbff&&i+1<s.length&&s.charCodeAt(i+1)>=0xdc00&&s.charCodeAt(i+1)<=0xdfff){bytes+=4;i++}else bytes+=3}return bytes}

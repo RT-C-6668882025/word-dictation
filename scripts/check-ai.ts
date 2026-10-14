@@ -13,3 +13,7 @@ await assert.rejects(()=>executeAi('get_words',{book_id:'a',limit:501},ops));awa
 const temp=await executeAi('create_temp_wordbook',{name:'金融',text:'money,钱\nbank,银行',page_size:10},ops) as any;assert.equal(temp.name,'[临时] 金融');assert.equal(temp.count,2);assert.equal(temp.saved,true);
 await assert.rejects(()=>executeAi('add_to_whitelist',{book_id:'a',word_ids:['w2']},{...ops,change:async()=>{throw Error('disk failed')}}));
 console.log('AI operations, counts and persistence failure passed');
+
+const longBooks:Book[]=[{id:'long',name:'长卡片',pageSize:50,whitelist:{},words:Array.from({length:40},(_,i)=>({id:'long'+i,front:'Q'+i,back:'长内容'.repeat(3000)}))}];
+let offset=0,read=0;do{const page=await executeAi('get_words',{book_id:'long',offset,limit:40},{...ops,books:()=>longBooks}) as any;assert(page.words.length>0);assert(Buffer.byteLength(JSON.stringify(page))<800000);assert.equal(page.words[0].back,longBooks[0].words[offset].back);read+=page.words.length;offset=page.next_offset}while(offset!==null);assert.equal(read,40);
+console.log('Long-card MCP pagination returns complete cards within transport capacity');

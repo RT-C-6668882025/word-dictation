@@ -91,6 +91,7 @@ footer {
   .aboutMeta > div { padding: 16px; }
   .voiceMenu { top: calc(var(--safe-top) + 16px); bottom: auto; left: calc(var(--safe-left) + 14px); right: calc(var(--safe-right) + 14px); max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px); }
 }
+
 /* Landscape phones and a resized keyboard window need the content height. */
 @media (max-height: 500px) {
   .screen-study { padding-bottom: calc(var(--safe-bottom) + 16px); }
@@ -209,3 +210,45 @@ footer {
  .screen-study .pageStats { gap: 12px; font-size: 12px; }
  .screen-study .headerActions { flex-wrap: wrap; }
 }
+
+/* Generic memory cards: content may grow, column widths and control positions may not. */
+.screen-study .grid { align-items: stretch; }
+.screen-study .card { align-items: flex-start; min-width: 0; gap: 8px; padding: 14px 12px; }
+.screen-study .card.isLong { grid-column: 1 / -1; }
+.screen-study .num { padding-top: 14px; width: 26px; }
+.screen-study .markButton { align-self: flex-start; }
+.screen-study .word, .screen-study .word.view-zh, .screen-study .word.view-en, .screen-study .word.view-both { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; gap: 16px; padding: 8px 4px; }
+.screen-study .word .englishCell { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.screen-study .word .speaker { align-self: flex-start; flex: none; }
+.screen-study .word .frontContent, .screen-study .word .answer { font-size: 18px; font-weight: 400; line-height: 1.7; text-align: start; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; min-width: 0; }
+.screen-study .word .frontContent { color: #171717; }
+.screen-study .word .answer { color: #65635e; border-left: 1px solid #ece9e2; padding-left: 16px; }
+.cardMarkdown { white-space: normal; font-weight: 400; min-width: 0; }
+.cardMarkdown > :first-child { margin-top: 0; }
+.cardMarkdown > :last-child { margin-bottom: 0; }
+.cardMarkdown p, .cardMarkdown ul, .cardMarkdown ol, .cardMarkdown blockquote, .cardMarkdown pre { margin: 0 0 .65em; }
+.cardMarkdown ul, .cardMarkdown ol { padding-inline-start: 1.4em; }
+.cardMarkdown h1, .cardMarkdown h2, .cardMarkdown h3, .cardMarkdown h4 { font-size: 1em; line-height: inherit; margin: .7em 0 .25em; font-weight: 650; }
+.cardMarkdown pre { max-width: 100%; overflow-x: auto; padding: 10px; background: #f5f4f0; border-radius: 6px; white-space: pre; font-size: .85em; }
+.cardMarkdown code { font-family: ui-monospace, monospace; }
+.cardMarkdown blockquote { margin-inline: 0; padding-inline-start: 10px; border-inline-start: 2px solid #d9d6ce; }
+.cardMarkdown table { display: block; width: 100%; overflow-x: auto; border-collapse: collapse; font-size: .9em; }
+.cardMarkdown th, .cardMarkdown td { padding: 5px 8px; border: 1px solid #ddd9d1; }
+.cardMarkdown .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: 4px; }
+.indexEntry .indexRow strong, .indexEntry .indexRow > span:nth-of-type(2) { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; line-height: 1.6; }
+@media(max-width:600px) {
+ .screen-study .card { padding: 10px 6px; gap: 4px; }
+ .screen-study .num { width: 22px; font-size: 11px; }
+ .screen-study .word, .screen-study .word.view-zh, .screen-study .word.view-en, .screen-study .word.view-both { gap: 10px; }
+ .screen-study .word .frontContent, .screen-study .word .answer { font-size: 16px; }
+ .screen-study .word .answer { padding-left: 10px; }
+}
+
+.screen-study .word .cardMarkdown strong { display: inline; font-size: inherit; line-height: inherit; font-weight: 650; }
+.cardMarkdown input[type=checkbox] { min-height: 0; min-width: 0; width: 14px; height: 14px; padding: 0; margin-inline-end: 5px; }
+/* Voice belongs to the fixed number gutter, so it cannot squeeze the reading columns. */
+.screen-study .word { min-height: 64px; }
+.screen-study .word .speaker { position: absolute; inset-inline-start: -30px; top: 34px; width: 28px; height: 28px; min-height: 28px; }
+/* Paragraph cards keep both faces at full reading width within the same list row. */
+.screen-study .card.isLong .word { grid-template-columns: minmax(0,1fr); gap: 12px; }
+.screen-study .card.isLong .word .answer { border-left: 0; border-block-start: 1px solid #ece9e2; padding-left: 0; padding-block-start: 12px; }

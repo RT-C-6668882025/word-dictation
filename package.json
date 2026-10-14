@@ -1,7 +1,7 @@
 {
   "name": "word-dictation",
   "private": true,
-  "version": "0.4.33",
+  "version": "0.4.34",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,6 +22,10 @@
     "pdfjs-dist": "^5.4.530",
     "react": "latest",
     "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest",
