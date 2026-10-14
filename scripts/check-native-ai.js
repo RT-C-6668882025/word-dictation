@@ -45,3 +45,16 @@
  if(!failed.response.error||failed.state.books.length!==1)throw Error('malformed cards must not partially save');
  print('Native universal cards: languages, long text, Markdown, query and atomic validation passed');
 })();
+
+(function(){
+ var state={books:[],receipts:{}},seq=0;
+ function assert(ok,message){if(!ok)throw Error(message)}
+ function call(name,args,id){var t=JSON.parse(WordAiEngine.transact(JSON.stringify(state),JSON.stringify({id:id||('manage'+(++seq)),name:name,arguments:args})));state=t.state;return t}
+ var imported=call('import_wordbook',{name:'管理测试',text:'Q,A'},'seed-management'),book=state.books[0],words=JSON.stringify(book.words),whitelist=JSON.stringify(book.whitelist);
+ assert(call('rename_wordbook',{book_id:book.id,name:'新版词库'},'rename-management').response.result.saved,'rename saved');assert(JSON.stringify(state.books[0].words)===words&&JSON.stringify(state.books[0].whitelist)===whitelist,'rename preserves contents');
+ var before=JSON.stringify(state);assert(call('delete_wordbook',{book_id:book.id,expected_name:'管理测试'}).response.error,'stale name rejected');assert(JSON.stringify(state)===before,'stale delete atomic');
+ var removed=call('delete_wordbook',{book_id:book.id,expected_name:'新版词库'},'delete-management');assert(removed.changed&&state.books.length===0,'delete saved');
+ assert(!call('delete_wordbook',{book_id:book.id,expected_name:'新版词库'},'delete-management').changed,'delete replay');assert(state.books.length===0,'delete replay does not restore');
+ assert(!call('import_wordbook',{name:'管理测试',text:'Q,A'},'seed-management').changed&&state.books.length===0,'late import replay does not recreate deleted library');
+ print('Native management: atomic rename/delete, stale-name protection and durable replays passed');
+})();

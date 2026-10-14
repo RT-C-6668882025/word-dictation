@@ -1,8 +1,7 @@
-import {validateAttachments,type Attachment} from './attachments';
 import Papa from 'papaparse';
 
 // en/zh remain compatibility aliases for previously stored libraries and Agents.
-export type ParsedWord={id:string;en?:string;zh?:string;front?:string;back?:string;format?:'text'|'markdown';attachments?:Attachment[]};
+export type ParsedWord={id:string;en?:string;zh?:string;front?:string;back?:string;format?:'text'|'markdown'};
 export const frontText=(card:ParsedWord)=>card.front??card.en??'';
 export const backText=(card:ParsedWord)=>card.back??card.zh??'';
 const uid=()=>Math.random().toString(36).slice(2);
@@ -14,7 +13,7 @@ function card(front:unknown,back:unknown,format:'text'|'markdown'='text',exact=f
  const a=exact?String(front):clean(front),b=exact?String(back):clean(back);if(!a.trim()||!b.trim())return null;
  return {id:uid(),front:a,back:b,format};
 }
-function unique(cards:ParsedWord[]){const seen=new Set<string>();return cards.filter(c=>{const key=JSON.stringify([frontText(c),backText(c),c.format||'text',c.attachments||[]]);if(seen.has(key))return false;seen.add(key);return true})}
+function unique(cards:ParsedWord[]){const seen=new Set<string>();return cards.filter(c=>{const key=JSON.stringify([frontText(c),backText(c),c.format||'text']);if(seen.has(key))return false;seen.add(key);return true})}
 function rowsToWords(rows:unknown[][]):ParsedWord[]{
  const out:ParsedWord[]=[];let first=true,reverse=false;
  for(const raw of rows){const cells=raw.map(clean);if(!cells.some(Boolean)||separator(cells))continue;
@@ -33,7 +32,7 @@ export function parseText(raw:string):ParsedWord[]{
   return unique(rows.map((row:any,i:number)=>{if(!row||typeof row!=='object')throw Error(`第 ${i+1} 条卡片格式错误`);const a=row.front??row.prompt??row.question??row.en,b=row.back??row.answer??row.zh;
    if(typeof a!=='string'||typeof b!=='string')throw Error(`第 ${i+1} 条需要文本正面和背面`);
    if(row.format!==undefined&&row.format!=='text'&&row.format!=='markdown')throw Error(`第 ${i+1} 条 format 只能为 text 或 markdown`);
-   const value=card(a,b,row.format||'text',true);if(!value)throw Error(`第 ${i+1} 条正面或背面为空`);const attachments=validateAttachments(row.attachments);if(attachments.length)value.attachments=attachments;return value;
+   const value=card(a,b,row.format||'text',true);if(!value)throw Error(`第 ${i+1} 条正面或背面为空`);return value;
   }));
  }
  const lines=input.split(/\r?\n/).filter(x=>x.trim());

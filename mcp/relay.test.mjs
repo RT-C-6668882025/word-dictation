@@ -33,12 +33,9 @@ test('pairing and completed results survive server restart; leased delivery retr
  }finally{if(server)await close(server);rmSync(dir,{recursive:true,force:true})}
 });
 
-test('attachment previews use MCP image content and retain source metadata',async()=>{
- const {server,base}=await launch();try{
-  const pair=await json(base+'/pair',{method:'POST'}),c=client(base,pair);await c.poll();
-  const result=json(base+'/mcp/'+pair.agentToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:8,method:'tools/call',params:{name:'get_attachment',arguments:{book_id:'b',word_id:'w',attachment_id:'att_12345678',mode:'preview'}}})});
-  let rows=[];for(let i=0;i<10&&!rows.length;i++)rows=await c.poll();assert.equal(rows[0].name,'get_attachment');
-  await c.result({id:rows[0].id,result:{mime:'image/jpeg',data:'YWJj',complete:true,attachment:{name:'示意图.jpg'},book_name:'资料',entry_number:3}});
-  const rpc=(await result).result;assert.equal(rpc.content[1].type,'image');assert.equal(rpc.content[1].data,'YWJj');assert.equal(rpc.structuredContent.result.book_name,'资料');assert(!('data' in rpc.structuredContent.result));
+test('management mutations require operation IDs and removed attachment tools are unavailable',async()=>{
+ const {server,base}=await launch();try{const pair=await json(base+'/pair',{method:'POST'}),c=client(base,pair);await c.poll();
+ for(const name of ['delete_wordbook','rename_wordbook']){const r=await c.rpc(name,{book_id:'book',name:'new',expected_name:'old'});assert.equal(r.status,'failed');assert.equal(r.data_changed,false);assert.match(r.error,/operation_id/)}
+ assert.equal((await c.rpc('get_attachment',{})).status,'failed');assert.equal((await c.rpc('upload_attachment',{})).status,'failed');assert.deepEqual(await c.poll(),[]);
  }finally{await close(server)}
 });

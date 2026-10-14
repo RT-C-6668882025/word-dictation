@@ -39,12 +39,6 @@ public class AiConnectionPlugin extends Plugin {
             call.resolve();
         } catch (Exception e) { call.reject("后台连接启动失败，请回到应用重连", e); }
     }
-    @PluginMethod public void writeAttachment(PluginCall call) {
-        getBridge().execute(() -> {try {call.resolve(new JSObject(AttachmentStore.write(getContext(),call.getData()).toString()));}catch(Exception e){call.reject(e.getMessage(),e);}});
-    }
-    @PluginMethod public void readAttachment(PluginCall call) {
-        getBridge().execute(() -> {try {call.resolve(new JSObject(AttachmentStore.read(getContext(),call.getData()).toString()));}catch(Exception e){call.reject(e.getMessage(),e);}});
-    }
     @PluginMethod public void getWordState(PluginCall call) {
         try { call.resolve(new JSObject(AiWordStore.load(getContext(), call.getString("initial")).toString())); }
         catch (Exception e) { call.reject("词库读取失败", e); }
