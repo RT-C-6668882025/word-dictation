@@ -1,0 +1,29 @@
+const {chromium}=require('playwright');
+const {spawn}=require('node:child_process');const fs=require('node:fs'),assert=require('node:assert/strict');
+
+function fixturePdf(){const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];for(const text of ['Attachment PDF first page','Second page example']){const stream='BT /F1 16 Tf 50 750 Td ('+text+') Tj ET';objects.push('<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream')}let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((object,i)=>{offsets.push(Buffer.byteLength(pdf));pdf+=(i+1)+' 0 obj\n'+object+'\nendobj\n'});const start=Buffer.byteLength(pdf);pdf+='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n ').join('\n')+'\ntrailer\n<< /Size '+(objects.length+1)+' /Root 1 0 R >>\nstartxref\n'+start+'\n%%EOF';return Buffer.from(pdf)}
+
+(async()=>{const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4186','--strictPort'],{stdio:'inherit'});let browser;try{
+ for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4186')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+ fs.mkdirSync('layout-checks',{recursive:true});browser=await chromium.launch();const page=await browser.newPage({viewport:{width:360,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4186');await page.locator('#raw').fill(JSON.stringify([{front:'附件问题',back:'附件答案'}]));await page.getByRole('button',{name:'创建词库',exact:true}).click();
+ await page.getByRole('button',{name:'管理附件：附件问题',exact:true}).click();await page.locator('.attachmentDialog').waitFor();
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=','base64');
+ await page.getByLabel('添加卡片附件').setInputFiles({name:'image.png',mimeType:'image/png',buffer:png});await page.getByRole('status').filter({hasText:'附件已保存'}).waitFor();assert.equal(await page.locator('.attachmentList li').count(),1);
+ await page.getByLabel('附件所在面').selectOption('back');
+ // A small valid PCM WAV: no autoplay.
+ const wav=Buffer.alloc(46);wav.write('RIFF',0);wav.writeUInt32LE(38,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(2,40);
+ await page.getByLabel('添加卡片附件').setInputFiles({name:'sample.wav',mimeType:'audio/wav',buffer:wav});await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===2);
+ await page.getByLabel('添加卡片附件').setInputFiles({name:'word-attachment.pdf',mimeType:'application/pdf',buffer:fixturePdf()});await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===3);
+ await page.getByRole('button',{name:'关闭',exact:true}).click();await page.locator('.attachmentSide img').waitFor();
+ const geom=()=>page.locator('.card').evaluate(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]});const before=await geom();
+ assert.equal(await page.getByRole('button',{name:'查看附件：sample.wav'}).count(),0,'hidden back attachment must not be accessible');
+ await page.locator('.seg button').nth(2).click();assert.deepEqual(await geom(),before,'attachment flip changed layout');
+ await page.getByRole('button',{name:'查看附件：sample.wav'}).click();await page.locator('audio').waitFor();assert.equal(await page.locator('audio').evaluate(e=>e.autoplay),false);await page.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByRole('button',{name:'查看附件：word-attachment.pdf'}).click();await page.waitForFunction(()=>document.querySelector('.attachmentPdf canvas')?.width>0&&document.querySelector('.attachmentPdf .row')?.textContent.includes('1 / 2'));await page.getByRole('button',{name:'下一页',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.attachmentPdf .row')?.textContent.includes('2 / 2'));await page.getByRole('button',{name:'关闭',exact:true}).click();
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('wd_state_v3')).books[0]);assert.equal(stored.words[0].attachments.length,3);assert(!JSON.stringify(stored).includes('base64'),'binary data should not be in wordbook storage');
+ await page.reload();await page.locator('.book').click();await page.getByRole('button',{name:'管理附件：附件问题',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===3);assert.equal(await page.locator('.attachmentList li').count(),3);
+ await page.getByRole('button',{name:'移除附件：sample.wav',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===2);await page.getByRole('button',{name:'关闭',exact:true}).click();
+ for(const width of [360,800]){await page.setViewportSize({width,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'attachments overflow');await page.screenshot({path:'layout-checks/attachments-'+width+'.png',fullPage:true});}
+ assert.deepEqual(errors,[]);console.log('PASS attachments: image/audio/PDF, per-side hiding, stable layout, private storage, reload, preview and remove');
+}finally{await browser?.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

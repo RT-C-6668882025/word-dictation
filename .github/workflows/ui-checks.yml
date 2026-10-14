@@ -29,6 +29,7 @@ jobs:
       - run: node scripts/check-whitelist.cjs
       - run: node scripts/check-ai-ui.cjs
       - run: node scripts/check-cards-ui.cjs
+      - run: node scripts/check-attachments-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

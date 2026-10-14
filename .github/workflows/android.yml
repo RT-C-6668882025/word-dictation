@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [main, codex/general-memory-cards]
+    branches: [main, codex/general-memory-cards, codex/card-attachments]
   workflow_dispatch:
     inputs:
       ai_relay_url:
@@ -49,6 +49,7 @@ jobs:
           node scripts/check-whitelist.cjs
           node scripts/check-ai-ui.cjs
           node scripts/check-cards-ui.cjs
+          node scripts/check-attachments-ui.cjs
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,6 +74,7 @@ jobs:
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
           cp native/AiConnectionPlugin.java android/app/src/main/java/com/rtc/worddictation/AiConnectionPlugin.java
           cp native/AiConnectionService.java android/app/src/main/java/com/rtc/worddictation/AiConnectionService.java
+          cp native/AttachmentStore.java android/app/src/main/java/com/rtc/worddictation/AttachmentStore.java
           cp native/AiWordStore.java android/app/src/main/java/com/rtc/worddictation/AiWordStore.java
           mkdir -p android/app/src/test/java/com/rtc/worddictation
           cp native/AiWordStoreTest.java android/app/src/test/java/com/rtc/worddictation/AiWordStoreTest.java

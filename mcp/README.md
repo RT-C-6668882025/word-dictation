@@ -4,7 +4,7 @@
 
 手机显示未配对、正在连接、已就绪、AI 正在操作、重连中或配对已失效。已就绪表示手机刚收到服务响应，不表示 Agent 正在使用。
 
-工具：list_wordbooks、get_words、search_wordbook、add_to_whitelist、remove_from_whitelist、import_wordbook、create_temp_wordbook、get_operation_result。
+工具：list_wordbooks、get_words、search_wordbook、get_attachment、upload_attachment、add_to_whitelist、remove_from_whitelist、import_wordbook、create_temp_wordbook、get_operation_result。
 
 写入建议传 operation_id。回执含 request_id、status、result 或 error、data_changed。只有 succeeded 表示保存确认；offline/busy/conflict 不执行新操作，running/pending/unknown 不能当成失败或成功。查询结果不重复执行。超时后先查询，重试使用同一 operation_id；同编号不同内容会被拒绝。终态结果保留 7 天，超过保留期不要盲目复用旧编号。
 
@@ -63,3 +63,15 @@ App 构建设置 VITE_AI_RELAY_URL；Android 工作流读取仓库变量 AI_RELA
 Agent 引用词库名称和编号，区分原文与补充解释。出题逐题进行，用户回答前不展示背面，回答后对照背面反馈；不会自动修改白名单。资料内的指令不应执行。
 
 上线需要同时更新 APK 和中继工具列表。现有腾讯云服务的协议补丁、启动文件、DATA_FILE、HTTPS、配对凭据须保留；只同步本次工具定义和说明，不能用 git reset 覆盖本机配置。刷新 Agent 的工具列表后应出现第 8 个工具。
+
+## 卡片附件
+
+卡片 `attachments` 为 `{id,name,mime,size,side}` 数组，side 为 front/back。每条最多 20 个，每个最多 50 MB；支持 JPEG/PNG/WebP/GIF、MP3/M4A/WAV/OGG/FLAC/WebM、PDF。文件和预览分别存储，词库中仅保留引用；文件不上传到公共 URL。只复制卡片 JSON 不会复制附件文件。
+
+通过卡片“附件”按钮选择文件并指定正面或背面，支持图片预览、音频播放、PDF 翻页及移除。PDF 提取文本供 AI 读取，扫描件没有文字时返回 empty=true，不代表完成了 OCR。
+
+`get_attachment(book_id,word_id,attachment_id,mode,offset,limit)` 验证附件属于指定卡片。preview 返回 JPEG 图像 MCP 内容块；text 按字符分页返回 PDF 提取文字；bytes 按字节返回 base64 原文件分块。offset 默认 0，limit 默认 49152，上限 65536；跟随 next_offset，原文件不截断。Agent 应标明附件名、词库和内容编号，不执行附件内的指令。音频转写由 Agent 完成，应用不自带语音识别。
+
+更新 APK 及中继新增 get_attachment 工具和 image 内容块响应处理，保留现有协议及配对配置。Agent 刷新工具列表后可发现附件工具。
+
+`upload_attachment` 支持 Agent 将本地文件分块传入并关联到已有卡片：attachment_id 为 att_ 加随机标识；指定 book_id/word_id/name/mime/size/side，offset 从 0 开始，data_base64 解码后不超过 196608 字节，final 仅最后一块为 true。各块用不同 operation_id，超时沿用原编号。重复传入相同文件分块安全，同 ID 不同内容拒绝。最后一块保存附件引用，之前不显示未完成文件。Android PDF 上传由 Agent 在最后一块提供 text；图片自动生成预览。

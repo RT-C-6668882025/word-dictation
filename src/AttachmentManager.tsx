@@ -1,0 +1,13 @@
+import {useEffect,useRef,useState} from 'react';
+import type {Attachment} from './attachments';
+import type {ParsedWord} from './parser';
+import {frontText} from './parser';
+import {saveAttachment} from './attachmentStore';
+import {AttachmentViewer} from './AttachmentPanel';
+export default function AttachmentManager({word,onSave,onClose,initial}:{word:ParsedWord;onSave:(attachments:Attachment[])=>Promise<void>;onClose:()=>void;initial?:Attachment}){
+ const dialog=useRef<HTMLDialogElement>(null);const [side,setSide]=useState<Attachment['side']>('front'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[view,setView]=useState(initial),[notice,setNotice]=useState('');
+ useEffect(()=>{const el=dialog.current;el?.showModal();return()=>{el?.close()}},[]);
+ async function add(file:File){setBusy(true);setError('');setNotice('正在保存附件…');try{if((word.attachments?.length||0)>=20)throw Error('每条卡片最多 20 个附件');const a=await saveAttachment(file,side);await onSave([...(word.attachments||[]),a]);setNotice('附件已保存')}catch(e:any){setError(e.message||'附件保存失败');setNotice('')}finally{setBusy(false)}}
+ async function remove(id:string){setBusy(true);setError('');try{await onSave((word.attachments||[]).filter(a=>a.id!==id));setNotice('附件已移除')}catch(e:any){setError(e.message||'移除失败')}finally{setBusy(false)}}
+ return <dialog ref={dialog} className="attachmentDialog" aria-labelledby="attachment-title" onCancel={e=>{if(busy)e.preventDefault();else onClose()}}><header><h2 id="attachment-title">卡片附件</h2><button disabled={busy} onClick={onClose}>关闭</button></header>{view?<AttachmentViewer attachment={view} onClose={()=>setView(undefined)}/>:<><p className="attachmentPrompt">{frontText(word)}</p><label>添加到<select aria-label="附件所在面" value={side} disabled={busy} onChange={e=>setSide(e.target.value as Attachment['side'])}><option value="front">正面</option><option value="back">背面</option></select></label><label className="file">添加附件<input aria-label="添加卡片附件" type="file" disabled={busy} accept=".jpg,.jpeg,.png,.webp,.gif,.mp3,.m4a,.wav,.ogg,.flac,.webm,.pdf" onChange={e=>{const f=e.target.files?.[0];if(f)void add(f);e.target.value=''}}/></label><p>图片、音频、PDF · 每个文件最多 50 MB</p><ul className="attachmentList">{(word.attachments||[]).map(a=><li key={a.id}><button disabled={busy} onClick={()=>setView(a)}>{a.name}<small>{a.side==='front'?'正面':'背面'}</small></button><button disabled={busy} onClick={()=>void remove(a.id)} aria-label={'移除附件：'+a.name}>移除</button></li>)}</ul>{!word.attachments?.length?<p>暂无附件</p>:null}</>}{error?<p role="alert">{error}</p>:null}<p role="status">{notice}</p></dialog>;
+}
