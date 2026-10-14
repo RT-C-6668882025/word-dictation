@@ -1,7 +1,7 @@
 import {validateAttachments,type Attachment} from './attachments';
 import{frontText,backText}from'./parser';
 import type {Book} from './wordbook';
-export type Operations={uploadAttachment?:(a:Record<string,any>)=>Promise<any>;attach?:(b:Book,wordId:string,a:Attachment)=>any;readAttachment?:(id:string,mode:'bytes'|'preview'|'text',offset:number,limit:number)=>Promise<any>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
+export type Operations={uploadAttachment?:(a:Record<string,any>)=>Promise<any>;attach?:(b:Book,wordId:string,a:Attachment)=>any;readAttachment?:(id:string,mode:'bytes'|'preview'|'text',offset:number,limit:number,page:number)=>Promise<any>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
 export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
  if(name==='list_wordbooks')return ops.books().map(b=>({id:b.id,name:b.name,count:b.words.length,pageSize:b.pageSize}));
  if(name==='import_wordbook'||name==='create_temp_wordbook'){
@@ -44,10 +44,10 @@ export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
  if(name==='get_attachment'){
   const word=b.words.find(w=>w.id===a.word_id),attachment=word?.attachments?.find(x=>x.id===a.attachment_id);
   if(!word||!attachment)throw Error('内容或附件不存在');
-  const mode=a.mode??'bytes',offset=a.offset??0,limit=a.limit??49152;
-  if(!['bytes','preview','text'].includes(mode)||!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>65536)throw Error('mode 为 bytes/preview/text；offset >= 0；limit 为 1–65536');
+  const mode=a.mode??'bytes',offset=a.offset??0,limit=a.limit??49152,page=a.page??1;
+  if(!['bytes','preview','text'].includes(mode)||!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>65536||!Number.isInteger(page)||page<1)throw Error('mode 为 bytes/preview/text；offset >= 0；limit 为 1–65536');
   if(!ops.readAttachment)throw Error('此执行环境不支持读取附件');
-  return ops.readAttachment(attachment.id,mode,offset,limit).then(result=>({...result,attachment,book_name:b.name,entry_number:b.words.indexOf(word)+1}));
+  return ops.readAttachment(attachment.id,mode,offset,limit,page).then(result=>({...result,attachment,book_name:b.name,entry_number:b.words.indexOf(word)+1}));
  }
  if(name==='get_words'){
   const offset=a.offset??0,limit=a.limit??200;if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>500)throw Error('offset >= 0；limit 为 1–500');
