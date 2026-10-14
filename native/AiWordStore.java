@@ -88,7 +88,7 @@ public final class AiWordStore {
     }
 
     private static String attachmentFingerprint(JSONObject args) throws Exception {
-        String[] keys=JSONObject.getNames(args);if(keys==null)keys=new String[0];java.util.Arrays.sort(keys);JSONArray pairs=new JSONArray();for(String key:keys)pairs.put(new JSONArray().put(key).put(args.get(key)));
+        java.util.List<String> keys=new java.util.ArrayList<>();java.util.Iterator<String> iterator=args.keys();while(iterator.hasNext())keys.add(iterator.next());java.util.Collections.sort(keys);JSONArray pairs=new JSONArray();for(String key:keys)pairs.put(new JSONArray().put(key).put(args.get(key)));
         byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(pairs.toString().getBytes(StandardCharsets.UTF_8));StringBuilder value=new StringBuilder("attachment:");for(byte b:hash)value.append(String.format("%02x",b&255));return value.toString();
     }
 }
