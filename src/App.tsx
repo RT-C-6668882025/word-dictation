@@ -71,10 +71,10 @@ export default function App(){
  const speakWord=async(text:string)=>{if(!Capacitor.isNativePlatform()){const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=ttsSpeed;window.speechSynthesis.cancel();window.speechSynthesis.speak(u);return}try{if(playbackEngine==='offline'&&ttsStatus.installed)await PocketTts.speak({text,speed:ttsSpeed,sid:ttsVoice});else await PocketTts.speakSystem({text,speed:ttsSpeed,engine:''})}catch(e:any){alert(e?.message||'朗读失败')}};
  const book=books.find(b=>b.id===activeId)||null;
  const persist=(next:Book[])=>{if(!storageReady){alert('词库正在读取，请稍后重试');return}const revision=nativeRevision.current;const state=JSON.stringify({books:next,receipts:receiptsRef.current,revision:revision+1});cacheBooks(next,state);booksRef.current=next;setBooks(next);if(Capacitor.isNativePlatform()){nativeRevision.current=revision+1;saveNativeBooks(revision,next).then(()=>refreshNativeState()).catch(async(e:any)=>{await refreshNativeState().catch(()=>{});alert(e?.message||'词库保存失败，请重试')})}};
- const saveCardAttachments=async(id:string,attachments:Attachment[])=>{
+ const saveCardAttachments=async(id:string,update:(attachments:Attachment[])=>Attachment[])=>{
   const current=booksRef.current,target=current.find(b=>b.id===activeId);if(!target||!target.words.some(w=>w.id===id))throw Error('卡片不存在');
-  const next=current.map(b=>b.id===target.id?{...b,words:b.words.map(w=>w.id===id?{...w,attachments}:w)}:b);
-  if(Capacitor.isNativePlatform()){await saveNativeBooks(nativeRevision.current,next);await refreshNativeState()}else persist(next);
+  const next=current.map(b=>b.id===target.id?{...b,words:b.words.map(w=>w.id===id?{...w,attachments:update(w.attachments||[])}:w)}:b);
+  if(Capacitor.isNativePlatform()){try{await saveNativeBooks(nativeRevision.current,next);await refreshNativeState()}catch(e){await refreshNativeState().catch(()=>{});throw e}}else persist(next);
  };
  useEffect(()=>{void cleanupAttachments(books).catch(()=>{})},[books]);
  const pageWords=useMemo(()=>book?book.words.slice(page*book.pageSize,(page+1)*book.pageSize):[],[book,page]);

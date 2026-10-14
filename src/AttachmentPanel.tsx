@@ -2,7 +2,7 @@ import {memo,useEffect,useState} from 'react';
 import type {Attachment} from './attachments';
 import {readAttachment,attachmentBlob} from './attachmentStore';
 export const AttachmentPanel=memo(function AttachmentPanel({attachments,visible,onOpen}:{attachments:Attachment[];visible:boolean;onOpen:(a:Attachment)=>void}){
- return <div className="attachmentSide" style={{visibility:visible?'visible':'hidden'}} aria-hidden={!visible}>{attachments.map(a=><AttachmentTile key={a.id} attachment={a} visible={visible} onOpen={onOpen}/>)}</div>;
+ return <div className="attachmentSide" style={{visibility:visible?'visible':'hidden'}} aria-hidden={!visible}>{attachments.length?<span className="attachmentSideLabel">{attachments[0].side==='front'?'正面附件':'背面附件'}</span>:null}{attachments.map(a=><AttachmentTile key={a.id} attachment={a} visible={visible} onOpen={onOpen}/>)}</div>;
 });
 function AttachmentTile({attachment:a,visible,onOpen}:{attachment:Attachment;visible:boolean;onOpen:(a:Attachment)=>void}){
  const [preview,setPreview]=useState(''),[error,setError]=useState('');

@@ -16,7 +16,7 @@ function fixturePdf(){const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Ty
  await page.getByLabel('添加卡片附件').setInputFiles({name:'sample.wav',mimeType:'audio/wav',buffer:wav});await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===2);
  await page.getByLabel('添加卡片附件').setInputFiles({name:'word-attachment.pdf',mimeType:'application/pdf',buffer:fixturePdf()});await page.waitForFunction(()=>document.querySelectorAll('.attachmentList li').length===3);
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.locator('.attachmentSide img').waitFor();
- const geom=()=>page.locator('.card').evaluate(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]});const before=await geom();
+ const geom=()=>page.locator('.card').evaluate(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]});const before=await geom();assert(await page.locator('.word').evaluate(e=>e.getBoundingClientRect().width>=180),'attachments must not squeeze card text');
  assert.equal(await page.getByRole('button',{name:'查看附件：sample.wav'}).count(),0,'hidden back attachment must not be accessible');
  await page.locator('.seg button').nth(2).click();assert.deepEqual(await geom(),before,'attachment flip changed layout');
  await page.getByRole('button',{name:'查看附件：sample.wav'}).click();await page.locator('audio').waitFor();assert.equal(await page.locator('audio').evaluate(e=>e.autoplay),false);await page.getByRole('button',{name:'关闭',exact:true}).click();
