@@ -10,6 +10,7 @@ try{for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4185')).ok)brea
  for(const width of [360,412,800,1280]){
   await page.setViewportSize({width,height:900});await page.goto('http://127.0.0.1:4185');await page.evaluate(()=>localStorage.clear());await page.reload();
   await page.locator('#bookName').fill('通用记忆');await page.locator('#raw').fill(JSON.stringify(cards));await page.getByRole('button',{name:'创建词库',exact:true}).click();
+  assert(await page.locator('.word').first().evaluate(e=>e.classList.contains('view-en')),'new cards must start with the prompt');
   await page.locator('.seg button').nth(2).click();await page.locator('.katex').first().waitFor();await page.evaluate(()=>document.fonts.ready);
   assert.equal(await page.locator('.card').count(),6);assert.equal(await page.locator('.answer').nth(3).textContent(),cards[3].back);
   assert.equal(await page.locator('.answer').nth(4).locator('pre code').count(),1);assert.equal(await page.evaluate(()=>window.cardExecuted),undefined);assert.equal(imageFetch,false);
