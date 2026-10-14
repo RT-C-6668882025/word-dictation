@@ -30,3 +30,20 @@ for(const args of [{entry_number:1},{book_id:'missing'},{book_id:'a',entry_numbe
 assert.equal(JSON.stringify(books),unchanged);
 let searchOffset=0,searchCount=0;do{const page=await executeAi('search_wordbook',{book_id:'long',offset:searchOffset,limit:40,context:1},{...ops,books:()=>longBooks}) as any;assert(Buffer.byteLength(JSON.stringify(page))<800000);assert.equal(page.matches[0].back,longBooks[0].words[searchOffset].back);searchCount+=page.matches.length;searchOffset=page.next_offset}while(searchOffset!==null);assert.equal(searchCount,40);
 console.log('Search citations, context, filters, pagination, empty results and read-only behavior passed');
+
+const attachment={id:'att_12345678',name:'资料.pdf',mime:'application/pdf',size:100,side:'back' as const};
+books[0].words[0].attachments=[attachment];
+const parsedAttachments=parseText(JSON.stringify([{front:'问',back:'答',attachments:[attachment]}]));assert.deepEqual(parsedAttachments[0].attachments,[attachment]);
+assert.throws(()=>parseText(JSON.stringify([{front:'问',back:'答',attachments:[{...attachment,id:'../../secret'}]}])));
+assert.throws(()=>parseText(JSON.stringify([{front:'问',back:'答',attachments:[{...attachment,mime:'text/html'}]}])));
+const readOps={...ops,readAttachment:async(id:string,mode:string,offset:number,limit:number)=>({text:'PDF资料',id,mode,offset,limit})};
+const attachmentRead=await executeAi('get_attachment',{book_id:'a',word_id:'w0',attachment_id:attachment.id,mode:'text'},readOps) as any;assert.equal(attachmentRead.text,'PDF资料');assert.equal(attachmentRead.entry_number,1);
+await assert.rejects(()=>executeAi('get_attachment',{book_id:'b',word_id:'w0',attachment_id:attachment.id},readOps));
+await assert.rejects(()=>executeAi('get_attachment',{book_id:'a',word_id:'w0',attachment_id:attachment.id,limit:65537},readOps));
+assert.deepEqual((await executeAi('search_wordbook',{book_id:'a',entry_number:1},ops) as any).matches[0].attachments,[attachment]);
+let uploads=0,associations=0;const uploadOps={...ops,uploadAttachment:async()=>{uploads++;return {saved:true}},attach:()=>{associations++}};
+const uploadArgs={book_id:'a',word_id:'w0',attachment_id:'att_upload123',name:'a.mp3',mime:'audio/mpeg',size:3,side:'front',offset:0,data_base64:'YWJj',final:true};
+assert((await executeAi('upload_attachment',uploadArgs,uploadOps) as any).saved);assert.equal(associations,1);
+await executeAi('upload_attachment',{...uploadArgs,final:false},uploadOps);assert.equal(uploads,2);assert.equal(associations,1);
+await assert.rejects(()=>executeAi('upload_attachment',{...uploadArgs,data_base64:'invalid!'},uploadOps));assert.equal(uploads,2);
+console.log('Attachment validation, source references, access scope, reads and upload association passed');

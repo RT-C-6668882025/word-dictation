@@ -25,6 +25,7 @@ public final class AiWordStore {
     }
     private static void save(Context context, JSONObject state) throws IOException {
         if (!preferences(context).edit().putString(KEY, state.toString()).commit()) throw new IOException("词库保存失败，请重试");
+        AttachmentStore.cleanup(context,state);
     }
     public static synchronized JSONObject saveBooks(Context context, long revision, JSONArray books) throws Exception {
         JSONObject state = load(context, null);
@@ -33,6 +34,37 @@ public final class AiWordStore {
     }
     public static synchronized JSONObject execute(Context context, JSONObject request) throws Exception {
         JSONObject state = load(context, null);
+        if (request.optString("name").equals("upload_attachment")) {
+            JSONObject args=request.getJSONObject("arguments"),response=new JSONObject();boolean changed=false;
+            try {
+                String fingerprint=attachmentFingerprint(args),requestId=request.getString("id");JSONObject receipts=state.optJSONObject("receipts");if(receipts==null)receipts=new JSONObject();
+                JSONObject previous=receipts.optJSONObject(requestId);
+                if(previous!=null){if(!fingerprint.equals(previous.optString("fingerprint")))throw new IOException("指令编号已被用于其他内容");save(context,state);return new JSONObject().put("response",new JSONObject().put("result",previous.getJSONObject("result"))).put("state",state).put("changed",false);}
+                JSONArray books=state.getJSONArray("books");JSONObject target=null;
+                for(int b=0;b<books.length();b++){JSONObject book=books.getJSONObject(b);if(!book.getString("id").equals(args.optString("book_id")))continue;JSONArray words=book.getJSONArray("words");for(int i=0;i<words.length();i++)if(words.getJSONObject(i).getString("id").equals(args.optString("word_id")))target=words.getJSONObject(i);}
+                if(target==null)throw new IOException("内容不存在");String name=args.getString("name"),side=args.getString("side");
+                if(name.trim().isEmpty()||name.length()>200||(!side.equals("front")&&!side.equals("back")))throw new IOException("附件名称或所在面无效");
+                JSONArray attachments=target.optJSONArray("attachments");if(attachments==null)attachments=new JSONArray();boolean exists=false;
+                JSONObject attachment=new JSONObject().put("id",args.getString("attachment_id")).put("name",name).put("mime",args.getString("mime")).put("size",args.getLong("size")).put("side",side);
+                for(int i=0;i<attachments.length();i++)if(attachments.getJSONObject(i).getString("id").equals(attachment.getString("id"))){exists=true;JSONObject old=attachments.getJSONObject(i);for(String key:new String[]{"name","mime","size","side"})if(!old.optString(key).equals(attachment.optString(key)))throw new IOException("附件 ID 已被使用");}
+                if(!exists&&attachments.length()>=20)throw new IOException("每条卡片最多 20 个附件");
+                JSONObject writeArgs=new JSONObject(args.toString()).put("id",args.getString("attachment_id")).put("data",args.getString("data_base64"));
+                JSONObject result=AttachmentStore.write(context,writeArgs);
+                if(args.getBoolean("final")){
+                    if(!exists){attachments.put(attachment);target.put("attachments",attachments);state.put("revision",state.optLong("revision")+1);changed=true;}
+                    result.put("attachment",attachment).put("book_id",args.getString("book_id")).put("word_id",args.getString("word_id"));
+                    java.util.Iterator<String> keys=receipts.keys();java.util.List<String> expired=new java.util.ArrayList<>();while(keys.hasNext()){String key=keys.next();if(System.currentTimeMillis()-receipts.getJSONObject(key).optLong("created")>7L*86400000)expired.add(key);}for(String key:expired)receipts.remove(key);
+                    receipts.put(requestId,new JSONObject().put("fingerprint",fingerprint).put("result",result).put("created",System.currentTimeMillis()));state.put("receipts",receipts);save(context,state);
+                }
+                response.put("result",result);
+            }catch(Exception e){response.put("error",e.getMessage()).put("data_changed",changed);}
+            return new JSONObject().put("response",response).put("state",state).put("changed",changed);
+        }
+        if (request.optString("name").equals("get_attachment")) {
+            JSONObject response=new JSONObject();try {response.put("result",AttachmentStore.readForAgent(context,state,request.getJSONObject("arguments")));}
+            catch(Exception e){response.put("error",e.getMessage()).put("data_changed",false);}
+            return new JSONObject().put("response",response).put("state",state).put("changed",false);
+        }
         org.mozilla.javascript.Context js = org.mozilla.javascript.Context.enter();
         try {
             js.setOptimizationLevel(-1); js.setLanguageVersion(org.mozilla.javascript.Context.VERSION_ES6);
@@ -53,5 +85,10 @@ public final class AiWordStore {
             if (transaction.getBoolean("changed") || (response.optJSONObject("result") != null && response.getJSONObject("result").optBoolean("saved"))) save(context, transaction.getJSONObject("state"));
             return transaction;
         } finally { org.mozilla.javascript.Context.exit(); }
+    }
+
+    private static String attachmentFingerprint(JSONObject args) throws Exception {
+        java.util.List<String> keys=new java.util.ArrayList<>();java.util.Iterator<String> iterator=args.keys();while(iterator.hasNext())keys.add(iterator.next());java.util.Collections.sort(keys);JSONArray pairs=new JSONArray();for(String key:keys)pairs.put(new JSONArray().put(key).put(args.get(key)));
+        byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(pairs.toString().getBytes(StandardCharsets.UTF_8));StringBuilder value=new StringBuilder("attachment:");for(byte b:hash)value.append(String.format("%02x",b&255));return value.toString();
     }
 }

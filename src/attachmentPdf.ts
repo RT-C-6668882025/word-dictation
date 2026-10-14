@@ -1,0 +1,8 @@
+import {getDocument,GlobalWorkerOptions} from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+GlobalWorkerOptions.workerSrc=pdfWorker;
+export async function extractAttachmentPdf(data:ArrayBuffer){const pdf=await getDocument({data}).promise;try{const parts:string[]=[];for(let page=1;page<=pdf.numPages;page++){const content=await(await pdf.getPage(page)).getTextContent();parts.push('[第 '+page+' 页]\n'+content.items.map(item=>'str'in item?item.str:'').join(' '))}return parts.some(p=>p.split('\n').slice(1).join('').trim())?parts.join('\n\n'):''}finally{await pdf.destroy()}}
+
+export async function previewAttachmentPdf(data:ArrayBuffer,page:number){
+ const pdf=await getDocument({data}).promise;try{if(page>pdf.numPages)throw Error('PDF 页码不存在');const item=await pdf.getPage(page),original=item.getViewport({scale:1}),viewport=item.getViewport({scale:Math.min(2,1280/Math.max(original.width,original.height))});const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);await item.render({canvas,viewport,background:'#fff'}).promise;let preview=canvas.toDataURL('image/jpeg',.65);while(preview.length>360000){const small=document.createElement('canvas');small.width=Math.max(1,canvas.width>>1);small.height=Math.max(1,canvas.height>>1);small.getContext('2d')!.drawImage(canvas,0,0,small.width,small.height);canvas.width=small.width;canvas.height=small.height;canvas.getContext('2d')!.drawImage(small,0,0);preview=canvas.toDataURL('image/jpeg',.6)}return {mime:'image/jpeg',data:preview.split(',')[1],encoding:'base64',complete:true,page,page_count:pdf.numPages}}finally{await pdf.destroy()}
+}

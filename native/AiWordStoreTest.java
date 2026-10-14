@@ -76,4 +76,19 @@ public class AiWordStoreTest {
         } finally { service.onDestroy(); }
     }
 
+
+    @Test public void attachmentsUploadReadReplayAndScope() throws Exception {
+        String id="att_native123456",bookId="attachbook",wordId="attachword";
+        AiWordStore.load(context,new JSONObject().put("books",new JSONArray().put(new JSONObject().put("id",bookId).put("name","附件词库").put("pageSize",50).put("whitelist",new JSONObject()).put("words",new JSONArray().put(new JSONObject().put("id",wordId).put("front","问题").put("back","答案"))))).put("receipts",new JSONObject()).toString());
+        JSONObject args=new JSONObject().put("book_id",bookId).put("word_id",wordId).put("attachment_id",id).put("name","a.wav").put("mime","audio/wav").put("size",3).put("side","back").put("offset",0).put("data_base64","YWJj").put("final",true);
+        JSONObject request=new JSONObject().put("id","upload-first").put("name","upload_attachment").put("arguments",args);
+        JSONObject first=AiWordStore.execute(context,request);assertTrue(first.getBoolean("changed"));assertTrue(first.getJSONObject("response").getJSONObject("result").getBoolean("saved"));
+        JSONObject replay=AiWordStore.execute(context,request);assertFalse(replay.getBoolean("changed"));assertEquals(1,AiWordStore.load(context,null).getJSONArray("books").getJSONObject(0).getJSONArray("words").getJSONObject(0).getJSONArray("attachments").length());
+        JSONObject readArgs=new JSONObject().put("book_id",bookId).put("word_id",wordId).put("attachment_id",id).put("mode","bytes").put("limit",2);
+        JSONObject read=AiWordStore.execute(context,new JSONObject().put("id","read").put("name","get_attachment").put("arguments",readArgs));assertEquals("YWI=",read.getJSONObject("response").getJSONObject("result").getString("data"));assertEquals(2,read.getJSONObject("response").getJSONObject("result").getInt("next_offset"));
+        readArgs.put("book_id","other");assertTrue(AiWordStore.execute(context,new JSONObject().put("name","get_attachment").put("arguments",readArgs)).getJSONObject("response").has("error"));
+        JSONObject state=AiWordStore.load(context,null);state.getJSONArray("books").getJSONObject(0).getJSONArray("words").getJSONObject(0).put("attachments",new JSONArray());AiWordStore.saveBooks(context,state.getLong("revision"),state.getJSONArray("books"));
+        assertFalse(AiWordStore.execute(context,request).getBoolean("changed"));assertEquals(0,AiWordStore.load(context,null).getJSONArray("books").getJSONObject(0).getJSONArray("words").getJSONObject(0).getJSONArray("attachments").length());
+        args.put("data_base64","ZGVm");assertTrue(AiWordStore.execute(context,request).getJSONObject("response").has("error"));
+    }
 }
