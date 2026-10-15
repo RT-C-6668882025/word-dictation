@@ -15,6 +15,13 @@ try{
   assert.equal(await active().locator('.contentEntry').count(),2);assert.equal(await active().getByText('内容 1',{exact:true}).count(),0);assert.equal(await active().getByText('点击显示',{exact:true}).count(),0);
   assert(await active().locator('.contentEntry').first().evaluate(e=>e.getBoundingClientRect().height<120),'short entries should remain compact');
   await active().getByRole('button',{name:'显示内容块 3',exact:true}).click();await active().getByText('放弃的最佳替代方案的价值。',{exact:true}).waitFor();await active().getByRole('button',{name:'隐藏内容块 3',exact:true}).click();assert.equal(await active().getByText('放弃的最佳替代方案的价值。',{exact:true}).count(),0);
+  // Touch controls must work at tablet widths without a preceding hover.
+  const first=active().locator('.contentEntry').first();
+  const hidePrompt=first.getByRole('button',{name:'隐藏内容块 1',exact:true});
+  assert.equal(await hidePrompt.evaluate(e=>getComputedStyle(e).opacity),'1');
+  assert(await hidePrompt.evaluate(e=>e.getBoundingClientRect().width>=40&&e.getBoundingClientRect().height>=40));
+  await hidePrompt.tap();assert.equal(await first.locator('.blockText').filter({hasText:'机会成本是什么？'}).count(),0);
+  await first.getByRole('button',{name:'显示内容块 1',exact:true}).tap();await first.getByText('机会成本是什么？',{exact:true}).waitFor();
   await page.getByRole('spinbutton',{name:'显示条数',exact:true}).fill('3');assert.equal(await active().locator('.contentEntry').count(),3);
   await active().getByRole('button',{name:'移出白名单：机会成本是什么？',exact:true}).click();assert.equal(await active().locator('.entryNeed').first().getAttribute('aria-pressed'),'true');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'horizontal overflow '+width);assert(await page.locator('.pageViewport').evaluate(e=>e.clientHeight>80),'viewport too small');
@@ -37,5 +44,14 @@ try{
  await page.goto('http://127.0.0.1:4186/pager.html');await page.waitForFunction(()=>typeof window.receiveStudyPage==='function');
  await page.evaluate(()=>{window.nativeActions=[];window.StudyPageHost={postMessage:raw=>window.nativeActions.push(JSON.parse(raw))};window.receiveStudyPage({page:{id:'native',title:'原生页内容',columns:1,word_ids:['n']},entries:[{id:'n',needed:true,blocks:[{id:'q',text:'本地问题'},{id:'a',text:'本地答案'}],visible_count:1}],scope:'all',count:null,reset:0})});
  await page.getByText('本地问题',{exact:true}).waitFor();await page.getByRole('button',{name:'显示内容块 2'}).click();await page.getByText('本地答案',{exact:true}).waitFor();await page.getByRole('button',{name:'移出白名单：本地问题'}).click();assert.equal((await page.evaluate(()=>window.nativeActions))[0].value,'n');
+ // Speaking always targets the first block, even after revealing the answer or hiding the prompt.
+ await page.getByRole('button',{name:'朗读 本地问题',exact:true}).tap();
+ assert.deepEqual((await page.evaluate(()=>window.nativeActions)).at(-1),{action:'speak',value:'本地问题'});
+ assert.equal(await page.locator('.contentBlock').first().locator('.entrySpeak').count(),1);
+ assert.equal(await page.locator('.contentBlock').nth(1).locator('.entrySpeak').count(),0);
+ await page.getByRole('button',{name:'隐藏内容块 1',exact:true}).tap();
+ await page.getByRole('button',{name:'朗读 本地问题',exact:true}).tap();
+ assert.deepEqual((await page.evaluate(()=>window.nativeActions)).at(-1),{action:'speak',value:'本地问题'});
+ await page.getByRole('button',{name:'显示内容块 1',exact:true}).tap();await page.getByText('本地问题',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);console.log('PASS compact pages: 5 viewports, real finger drag before release, adjacent page, snap, long content, blocks, whitelist, index/progress and native local renderer');
 }finally{await browser?.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

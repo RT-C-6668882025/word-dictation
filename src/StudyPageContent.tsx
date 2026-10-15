@@ -17,11 +17,12 @@ export function StudyPageContent({model,onNeed,onSpeak}:{model:StudyPageModel;on
     <span className="entryNumber">{String(index+1).padStart(2,'0')}</span>
     <div className="entryBlocks" style={{'--block-count':blocks.length} as React.CSSProperties}>
      {blocks.map((block,i)=>{const id=w.id+':'+block.id,open=revealed[id]??i<initial;return <div className="contentBlock" key={block.id}>
+      {i===0&&<button className="entrySpeak blockSpeak" aria-label={'朗读 '+block.text} onClick={()=>onSpeak(block.text)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="M16 8c2 2 2 6 0 8m3-11c4 4 4 10 0 14" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button>}
       {block.label&&<small className="contentLabel">{block.label}</small>}
-      {open?<div className="blockBody" dir="auto"><div className="blockText"><CardContent text={block.text} format={block.format}/></div><button className="hideBlock" aria-label={'隐藏内容块 '+(i+1)} onClick={()=>setRevealed(r=>({...r,[id]:false}))}>−</button></div>:<button className="hiddenBlock" aria-label={'显示内容块 '+(i+1)} aria-expanded={false} onClick={()=>setRevealed(r=>({...r,[id]:true}))}><span aria-hidden="true">···</span></button>}
+      {open?<div className="blockBody" dir="auto"><div className="blockText"><CardContent text={block.text} format={block.format}/></div><button className="hideBlock" aria-label={'隐藏内容块 '+(i+1)} onClick={()=>setRevealed(r=>({...r,[id]:false}))} aria-expanded={true}>隐藏</button></div>:<button className="hiddenBlock" aria-label={'显示内容块 '+(i+1)} aria-expanded={false} onClick={()=>setRevealed(r=>({...r,[id]:true}))}><span aria-hidden="true">···</span></button>}
      </div>})}
     </div>
-    <div className="entryActions"><button className="entrySpeak" aria-label={'朗读 '+blocks[0]?.text} onClick={()=>onSpeak(blocks.filter((b,i)=>revealed[w.id+':'+b.id]??i<initial).map(b=>b.text).join('\n\n'))}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="M16 8c2 2 2 6 0 8m3-11c4 4 4 10 0 14" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button><button className={'entryNeed'+(w.needed?'':' marked')} aria-label={(w.needed?'移出白名单：':'加入白名单：')+blocks[0]?.text} aria-pressed={!w.needed} onClick={()=>onNeed(w.id)}>{w.needed?'':'✓'}</button></div>
+    <div className="entryActions"><button className={'entryNeed'+(w.needed?'':' marked')} aria-label={(w.needed?'移出白名单：':'加入白名单：')+blocks[0]?.text} aria-pressed={!w.needed} onClick={()=>onNeed(w.id)}>{w.needed?'':'✓'}</button></div>
    </article>})}
   </div>
   {!rows.length&&<div className="empty"><h2>{eligible.length?'当前内容已隐藏':'本页暂无内容'}</h2><p>{eligible.length?'调整显示条数即可查看。':'切换显示范围，或让 Agent 编排本页。'}</p></div>}
