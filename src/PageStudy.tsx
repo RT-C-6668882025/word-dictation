@@ -4,8 +4,8 @@ import {contentBlocks} from './parser';
 import {bookPages,needIds,type Book} from './wordbook';
 
 
-type Props={book:Book;page:number;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
-export function PageStudy({book,page,onPage,onNeed,onSpeak}:Props){
+type Props={book:Book;page:number;focusId?:string;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
+export function PageStudy({book,page,focusId,onPage,onNeed,onSpeak}:Props){
  const pages=useMemo(()=>bookPages(book),[book]);const safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
  const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
  const [scope,setScope]=useState<'all'|'need'>('all');
@@ -14,8 +14,10 @@ export function PageStudy({book,page,onPage,onNeed,onSpeak}:Props){
  const key=book.id+':'+current.id;const signature=JSON.stringify([current,current.word_ids.map(id=>{const w=lookup.get(id);return [id,w?.visible_count,w?.blocks?.map(b=>b.id)]})]);
  useEffect(()=>{setCount(null);setRevealed({});if(scroller.current)scroller.current.scrollTop=0;wheelSum.current=0},[key,signature]);
  useEffect(()=>{try{localStorage.setItem('wd_page_'+book.id,current.id)}catch{}},[book.id,current.id]);
+ useEffect(()=>{if(!focusId)return;const i=current.word_ids.indexOf(focusId);if(i<0)return;setScope('all');setCount(Math.max(i+1,current.visible_count??current.word_ids.length))},[focusId,key,signature]);
  const entries=current.word_ids.map(id=>lookup.get(id)!).filter(w=>w&&(scope==='all'||need.has(w.id)));
  const shown=Math.min(count??current.visible_count??entries.length,entries.length),rows=entries.slice(0,shown);
+ useEffect(()=>{if(!focusId)return;const frame=requestAnimationFrame(()=>{const el=Array.from(scroller.current?.querySelectorAll<HTMLElement>('[data-entry-id]')??[]).find(el=>el.dataset.entryId===focusId);el?.scrollIntoView({block:'nearest'})});return()=>cancelAnimationFrame(frame)},[focusId,shown,key]);
  const move=(delta:number)=>{const next=safe+delta;if(next<0||next>=pages.length)return;onPage(next)};
  const boundary=()=>{const e=scroller.current;return {top:!e||e.scrollTop<=2,bottom:!e||e.scrollTop+e.clientHeight>=e.scrollHeight-2}};
  return <section className="pageStudy" aria-label="背记页面">

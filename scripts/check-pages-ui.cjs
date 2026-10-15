@@ -26,6 +26,7 @@ try{
   await page.locator('.pageViewport').evaluate(e=>e.scrollTop=e.scrollHeight);await swipe(-130);await page.getByRole('heading',{name:'第三页',exact:true}).waitFor();
   await swipe(130);await page.getByRole('heading',{name:'长内容',exact:true}).waitFor();
   await page.locator('.homeBtn').click();await page.locator('.book').click();await page.getByRole('heading',{name:'长内容',exact:true}).waitFor();assert.equal(await page.locator('.pageNavigation [role=status]').textContent(),'2 / 3');
+  if(width===360){await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').nth(2).click();await page.locator('[data-entry-id=c]').waitFor();assert.equal(await page.locator('.contentEntry').count(),3);assert(await page.getByText('第三条隐藏内容',{exact:true}).isVisible());await page.getByRole('button',{name:'下一页 ↓',exact:true}).click()}
   await page.locator('.pageViewport').focus();await page.keyboard.press('PageDown');await page.getByRole('heading',{name:'第三页',exact:true}).waitFor();
  }
  // Old data retains its exact content, page boundaries and membership.
