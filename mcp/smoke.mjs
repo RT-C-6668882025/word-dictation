@@ -1,5 +1,6 @@
 // Verify a deployed relay without reading any user's real wordbooks.
 import assert from 'node:assert/strict';
+import {tools} from './relay.mjs';
 const base=(process.argv[2]||'').replace(/\/$/,'');
 if(!/^https:\/\//.test(base))throw Error('Usage: node mcp/smoke.mjs https://your-relay-domain');
 const request=async(path,options={})=>{const r=await fetch(base+path,{...options,signal:AbortSignal.timeout(35000)});if(!r.ok)throw Error('HTTP '+r.status);return r.status===204?null:r.json()};
@@ -9,7 +10,9 @@ const endpoint='/mcp/'+pair.agentToken;
 const rpc=(method,params={})=>request(endpoint,{method:'POST',headers:{'Content-Type':'application/json','MCP-Protocol-Version':'2025-06-18'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
 try{
  assert.equal((await rpc('initialize',{protocolVersion:'2025-06-18'})).result.serverInfo.name,'word-dictation');
- assert.equal((await rpc('tools/list')).result.tools.length,7);
+ const listed=(await rpc('tools/list')).result.tools;
+ assert.deepEqual(listed.map(t=>t.name).sort(),tools.map(t=>t.name).sort());
+ for(const version of ['2025-11-25','2025-06-18','2025-03-26','2024-11-05'])assert.equal((await rpc('initialize',{protocolVersion:version})).result.protocolVersion,version);
  await request('/device/poll',{headers});
  const call=rpc('tools/call',{name:'list_wordbooks'});
  const rows=await request('/device/poll',{headers});assert.equal(rows.length,1);
