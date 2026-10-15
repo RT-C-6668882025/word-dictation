@@ -1,6 +1,11 @@
 package com.rtc.worddictation;
 
 import android.content.ClipData;
+import android.content.Context;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ApplicationInfo;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import android.content.Intent;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -183,6 +188,26 @@ public class AppUpdaterPlugin extends Plugin {
         return intent;
     }
 
+    // Some OEM installers hand parsing to another package and lose the Intent's URI grant.
+    // Grant only this APK, read-only, to installer handlers and installed system delegates.
+    static Set<String> grantInstallerReadAccess(Context context, Intent intent) {
+        PackageManager pm = context.getPackageManager();
+        Set<String> packages = new LinkedHashSet<>();
+        for (String action : new String[]{Intent.ACTION_INSTALL_PACKAGE, Intent.ACTION_VIEW}) {
+            Intent probe = new Intent(intent).setAction(action);
+            for (ResolveInfo info : pm.queryIntentActivities(probe, PackageManager.MATCH_DEFAULT_ONLY))
+                if (info.activityInfo != null) packages.add(info.activityInfo.packageName);
+        }
+        for (String name : new String[]{"com.miui.packageinstaller", "com.android.packageinstaller", "com.google.android.packageinstaller", "com.samsung.android.packageinstaller"}) {
+            try {
+                ApplicationInfo info = pm.getApplicationInfo(name, 0);
+                if ((info.flags & (ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0) packages.add(name);
+            } catch (PackageManager.NameNotFoundException absent) { /* Different OEM. */ }
+        }
+        for (String name : packages) context.grantUriPermission(name, intent.getData(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        return packages;
+    }
+
     private void openSystemInstaller(PluginCall call, File apk) throws Exception {
         Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".updater", apk);
         PackageInfo target = getContext().getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
@@ -190,7 +215,10 @@ public class AppUpdaterPlugin extends Plugin {
         long version = Build.VERSION.SDK_INT >= 28 ? target.getLongVersionCode() : target.versionCode;
         getContext().getSharedPreferences(DIAG_PREFS, 0).edit().putLong("target_version", version).apply();
         Intent intent = systemInstallIntent(uri);
-        diag("system_installer", "已从前台打开系统安装器，等待系统确认；APK 已保留");
+        // Remove any previous explicit grant before granting the current validated APK.
+        getContext().revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Set<String> installers = grantInstallerReadAccess(getContext(), intent);
+        diag("system_installer", "已从前台打开系统安装器，等待系统确认；APK 已保留\n已授予 APK 只读权限：" + installers);
         try { startActivityForResult(call, intent, "systemInstallResult"); }
         catch (ActivityNotFoundException unavailable) {
             intent.setAction(Intent.ACTION_VIEW);

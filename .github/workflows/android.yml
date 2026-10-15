@@ -103,6 +103,13 @@ jobs:
           import re
           manifest_extra='\\1\\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\\n    <queries>\\n        <intent>\\n            <action android:name="android.intent.action.TTS_SERVICE" />\\n        </intent>\\n    </queries>'
           s=re.sub(r'(<manifest[^>]*>)', manifest_extra, s, count=1)
+          install_queries='''<intent><action android:name="android.intent.action.INSTALL_PACKAGE" /><data android:mimeType="application/vnd.android.package-archive" /></intent>
+              <intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="application/vnd.android.package-archive" /></intent>
+              <package android:name="com.miui.packageinstaller" />
+              <package android:name="com.android.packageinstaller" />
+              <package android:name="com.google.android.packageinstaller" />
+              <package android:name="com.samsung.android.packageinstaller" />'''
+          s=s.replace('</queries>', install_queries+'\n    </queries>')
           provider='''\n        <provider
               android:name="androidx.core.content.FileProvider"
               android:authorities="com.rtc.worddictation.updater"
@@ -237,9 +244,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 朗读按钮移到首个内容块旁，展开释义后仍只朗读单词
-          - 显隐按钮始终可见，扩大触控范围，支持平板操作
-          - 增加触摸显隐与朗读内容回归检查
+          - 修复小米等系统安装器读取 APK 被拒绝的问题
+          - 对安装器显式授予单个 APK 的只读权限
+          - 保留单词朗读和触控显隐修复
           - 保留旧词库与白名单、语音及后台 AI 连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then

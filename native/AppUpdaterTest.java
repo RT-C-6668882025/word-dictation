@@ -20,6 +20,25 @@ public class AppUpdaterTest {
   assertEquals("application/vnd.android.package-archive",intent.getType());assertNotEquals(0,intent.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);
   assertEquals(0,intent.getFlags()&Intent.FLAG_ACTIVITY_NEW_TASK);assertEquals(uri,intent.getClipData().getItemAt(0).getUri());assertTrue(intent.getBooleanExtra(Intent.EXTRA_RETURN_RESULT,false));
  }
+ @Test public void explicitlyGrantsReadOnlyAccessToInstallerAndOemParsingDelegate() throws Exception {
+  android.content.Context base=RuntimeEnvironment.getApplication();
+  android.content.pm.PackageManager pm=base.getPackageManager();
+  Uri uri=Uri.parse("content://com.rtc.worddictation.updater/updates/test.apk");
+  Intent intent=AppUpdaterPlugin.systemInstallIntent(uri);
+  android.content.pm.ResolveInfo handler=new android.content.pm.ResolveInfo();
+  handler.activityInfo=new android.content.pm.ActivityInfo();handler.activityInfo.packageName="test.installer";handler.activityInfo.name="Installer";
+  org.robolectric.Shadows.shadowOf(pm).addResolveInfoForIntent(intent,handler);
+  android.content.pm.PackageInfo oem=new android.content.pm.PackageInfo();oem.packageName="com.miui.packageinstaller";
+  oem.applicationInfo=new android.content.pm.ApplicationInfo();oem.applicationInfo.packageName=oem.packageName;oem.applicationInfo.flags=android.content.pm.ApplicationInfo.FLAG_SYSTEM;
+  org.robolectric.Shadows.shadowOf(pm).installPackage(oem);
+  java.util.Set<String> granted=new java.util.HashSet<>();
+  android.content.Context context=new android.content.ContextWrapper(base){
+   @Override public void grantUriPermission(String name,Uri grantedUri,int flags){assertEquals(uri,grantedUri);assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION,flags);granted.add(name);}
+  };
+  java.util.Set<String> targets=AppUpdaterPlugin.grantInstallerReadAccess(context,intent);
+  assertTrue(targets.contains("test.installer"));assertTrue(targets.contains("com.miui.packageinstaller"));assertEquals(targets,granted);
+  assertFalse(targets.contains("com.google.android.packageinstaller"));
+ }
  @Test public void downloadedApkCanBeReadThroughNarrowFileProvider() throws Exception {
   android.content.Context context=RuntimeEnvironment.getApplication();
   java.io.File dir=new java.io.File(context.getFilesDir(),"updates");dir.mkdirs();java.io.File file=new java.io.File(dir,"probe.apk");
