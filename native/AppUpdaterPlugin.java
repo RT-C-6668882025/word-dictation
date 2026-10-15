@@ -82,19 +82,22 @@ public class AppUpdaterPlugin extends Plugin {
         File apk = pendingApk();
         try {
             validateApk(apk, "");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                    !getContext().getPackageManager().canRequestPackageInstalls()) {
-                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:" + getContext().getPackageName()));
-                getActivity().startActivity(settings);
-                JSObject out = new JSObject();
-                out.put("pending", true);
-                out.put("needsPermission", true);
-                call.resolve(out);
-                return;
-            }
-            diag("retry_install", "重新提交系统安装");
-            openSystemInstaller(call, apk);
+            getActivity().runOnUiThread(() -> {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                            !getContext().getPackageManager().canRequestPackageInstalls()) {
+                        Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:" + getContext().getPackageName()));
+                        getActivity().startActivity(settings);
+                        JSObject out = new JSObject();
+                        out.put("pending", true);out.put("needsPermission", true);call.resolve(out);return;
+                    }
+                    diag("retry_install", "重新打开系统安装器");
+                    openSystemInstaller(call, apk);
+                } catch (Exception e) {
+                    diag("retry_failed", e.getMessage());call.reject("继续安装失败：" + e.getMessage());
+                }
+            });
         } catch (Exception e) {
             diag("retry_failed", e.getMessage());
             call.reject("继续安装失败：" + e.getMessage());
