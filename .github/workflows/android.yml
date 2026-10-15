@@ -39,6 +39,10 @@ jobs:
           cat native/ai-engine.js scripts/check-native-ai.js > /tmp/native-ai-suite.js
           java -cp /tmp/rhino.jar org.mozilla.javascript.tools.shell.Main -version 200 -opt -1 /tmp/native-ai-suite.js
           npx --yes tsx scripts/check-library-management.ts
+          npx --yes tsx scripts/check-pages.ts
+          npx --yes tsx scripts/check-pages-relay.ts
+          npx --yes tsx scripts/check-ai.ts
+          node --test mcp/relay.test.mjs
       - name: Verify layout in Chromium
         env:
           BUILD_TARGET: android
@@ -46,10 +50,8 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           node scripts/check-native-cache.cjs
-          node scripts/check-layout.cjs
-          node scripts/check-whitelist.cjs
           node scripts/check-ai-ui.cjs
-          node scripts/check-cards-ui.cjs
+          node scripts/check-pages-ui.cjs
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -228,10 +230,10 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 支持任意语言的正面/背面卡片，兼容原有词库和白名单
-          - 支持长段落、Markdown、代码和公式，统一两面排版
-          - 保持分页、多条展示、逐条显隐及后台 AI 连接
-          - 系统停止后台服务后，回到应用自动恢复连接"
+          - Agent 编排页面与任意数量内容块，支持逐块显隐
+          - 取消固定每页条数，页面与条目可设置显示数量
+          - 上下滑页，长内容滚动阅读，保存阅读位置
+          - 保留旧词库与白名单、语音及后台 AI 连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest

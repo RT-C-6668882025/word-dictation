@@ -39,7 +39,7 @@
  if(book.words[3].back!==cards[3].back||book.words[4].format!=='markdown')throw Error('content lost');
  var query={id:'read-universal',name:'get_words',arguments:{book_id:book.id,query:'日本語'}};
  var read=JSON.parse(WordAiEngine.transact(JSON.stringify(result.state),JSON.stringify(query)));
- if(read.response.result.words[0].front!==cards[0].front)throw Error('generic query');
+ if(read.response.result.words[0].blocks[0].text!==cards[0].front)throw Error('generic query');
  request.id='bad-universal';request.arguments.text=JSON.stringify([cards[0],{front:'missing back'}]);
  var failed=JSON.parse(WordAiEngine.transact(JSON.stringify(result.state),JSON.stringify(request)));
  if(!failed.response.error||failed.state.books.length!==1)throw Error('malformed cards must not partially save');
@@ -71,4 +71,23 @@
  var merge=call('merge_wordbooks',{book_ids:[book.id,split.response.result.book_id],name:'合并'},'full-merge');assert(state.books.length===3&&merge.response.result.count===3,'merge');assert(!call('merge_wordbooks',{book_ids:[book.id,split.response.result.book_id],name:'合并'},'full-merge').changed&&state.books.length===3,'merge durable replay');
  var ids=state.books[0].words.map(function(w){return w.id});call('delete_cards',{book_id:book.id,word_ids:ids},'full-delete');assert(state.books[0].words.length===0,'delete to empty book');assert(!call('delete_cards',{book_id:book.id,word_ids:ids},'full-delete').changed,'delete durable replay');
  print('Native full management: all operations, multi-book atomic commit and durable replay passed');
+})();
+
+(function(){
+ var state={books:[],receipts:{}},seq=0;
+ function assert(ok,message){if(!ok)throw Error(message)}
+ function call(name,args,id){var t=JSON.parse(WordAiEngine.transact(JSON.stringify(state),JSON.stringify({id:id||('pages'+(++seq)),name:name,arguments:args})));state=t.state;return t}
+ var pages=[{id:'p1',title:'第一组',columns:2,entries:[{id:'a',blocks:[{id:'q',text:'问题'},{id:'h',text:'提示'},{id:'answer',text:'完整答案'}],visible_count:2},{id:'b',blocks:[{text:'一段独立内容'}],visible_count:0,in_whitelist:false}]},{id:'p2',entries:[{id:'c',blocks:[{text:'第二页内容'}]}]}];
+ var args={name:'后台页面',pages:pages},created=call('compose_wordbook',args,'compose-pages');assert(created.changed,'native compose');var id=created.response.result.book_id;
+ assert(!call('compose_wordbook',args,'compose-pages').changed&&state.books.length===1,'compose replay');
+ var read=call('get_wordbook_pages',{book_id:id,limit:2});assert(read.response.result.pages[0].entries[0].blocks.length===3,'native page read');
+ var ordered=call('set_wordbook_pages',{book_id:id,pages:[{id:'new',word_ids:['c','b']},{id:'p1',word_ids:['a']}]},'layout-pages');assert(ordered.changed&&state.books[0].words[0].id==='c','native reorder');assert(state.books[0].whitelist['0'].length===1,'native whitelist preserved');
+ var before=JSON.stringify(state);assert(call('set_wordbook_pages',{book_id:id,pages:[{id:'bad',word_ids:['a','a']}]}).response.error,'invalid full layout');assert(JSON.stringify(state)===before,'invalid layout atomic');
+ var add=call('add_cards',{book_id:id,page_id:'new',cards:[{blocks:[{text:'新内容'},{text:'解析'}],visible_count:1}]},'add-blocks');assert(add.changed,'native add blocks');var word=add.response.result.added_ids[0];
+ var edit=call('update_cards',{book_id:id,cards:[{word_id:word,visible_count:0}]},'hide-blocks');assert(edit.changed,'native visibility');
+ assert(call('search_wordbook',{book_id:id,query:'解析'}).response.result.total===1,'search all blocks');
+ var split=call('split_wordbook',{book_id:id,word_ids:['a',word],name:'专题'},'split-pages');assert(split.changed,'native split pages');
+ var merged=call('merge_wordbooks',{book_ids:[id,split.response.result.book_id],name:'合并'},'merge-pages');assert(merged.changed&&state.books[2].pages.length===4,'native merge pages');
+ assert(!call('merge_wordbooks',{book_ids:[id,split.response.result.book_id],name:'合并'},'merge-pages').changed,'native merge replay');
+ print('Native pages: compose/read/reorder, blocks and visibility, whitelist, atomic failure, split/merge and durable replay passed');
 })();

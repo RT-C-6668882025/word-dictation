@@ -45,6 +45,26 @@ public class AiWordStoreTest {
         AiWordStore.execute(context, importRequest());
         assertEquals(0, AiWordStore.load(context, null).getJSONArray("books").length());
     }
+    @Test public void composedPagesPersistBlocksVisibilityAndReceiptWithoutActivity() throws Exception {
+        AiWordStore.load(context, "{\"books\":[],\"receipts\":{}}");
+        JSONObject entry = new JSONObject().put("id", "entry-one").put("visible_count", 1)
+            .put("blocks", new JSONArray().put(new JSONObject().put("text", "问题"))
+                .put(new JSONObject().put("text", "提示")).put(new JSONObject().put("text", "解析")));
+        JSONObject page = new JSONObject().put("id", "page-one").put("columns", 2).put("entries", new JSONArray().put(entry));
+        JSONObject request = new JSONObject().put("id", "compose-persistent").put("name", "compose_wordbook")
+            .put("arguments", new JSONObject().put("name", "页面词库").put("pages", new JSONArray().put(page)));
+        JSONObject result = AiWordStore.execute(context, request);
+        assertTrue(result.getBoolean("changed"));
+        JSONObject loaded = AiWordStore.load(context, null);
+        JSONObject book = loaded.getJSONArray("books").getJSONObject(0);
+        assertEquals("page-one", book.getJSONArray("pages").getJSONObject(0).getString("id"));
+        assertEquals(3, book.getJSONArray("words").getJSONObject(0).getJSONArray("blocks").length());
+        assertEquals(1, book.getJSONArray("words").getJSONObject(0).getInt("visible_count"));
+        assertTrue(loaded.getJSONObject("receipts").has("compose-persistent"));
+        assertFalse(AiWordStore.execute(context, request).getBoolean("changed"));
+        assertEquals(1, AiWordStore.load(context, null).getJSONArray("books").length());
+    }
+
     public static class FakeRemoteService extends AiConnectionService {
         final CountDownLatch ack = new CountDownLatch(1);
         JSONObject firstResponse;
