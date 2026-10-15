@@ -8,6 +8,7 @@ export default defineConfig(() => {
 
   return {
     base,
+    build:{rollupOptions:{input:{main:"index.html",pager:"pager.html"}}},
     plugins: [
       react(),
       ...(!android ? [VitePWA({

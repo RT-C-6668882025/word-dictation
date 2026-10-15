@@ -30,6 +30,7 @@ jobs:
       - run: node scripts/check-native-cache.cjs
       - run: node scripts/check-ai-ui.cjs
       - run: node scripts/check-pages-ui.cjs
+      - run: node scripts/check-native-pager-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

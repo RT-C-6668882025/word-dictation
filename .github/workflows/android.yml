@@ -52,6 +52,7 @@ jobs:
           node scripts/check-native-cache.cjs
           node scripts/check-ai-ui.cjs
           node scripts/check-pages-ui.cjs
+          node scripts/check-native-pager-ui.cjs
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -74,10 +75,12 @@ jobs:
       - name: Install Pocket TTS Android bridge
         run: |
           cp native/PocketTtsPlugin.java android/app/src/main/java/com/rtc/worddictation/PocketTtsPlugin.java
+          cp native/StudyPagerPlugin.java android/app/src/main/java/com/rtc/worddictation/StudyPagerPlugin.java
           cp native/AiConnectionPlugin.java android/app/src/main/java/com/rtc/worddictation/AiConnectionPlugin.java
           cp native/AiConnectionService.java android/app/src/main/java/com/rtc/worddictation/AiConnectionService.java
           cp native/AiWordStore.java android/app/src/main/java/com/rtc/worddictation/AiWordStore.java
           mkdir -p android/app/src/test/java/com/rtc/worddictation
+          cp native/StudyPagerTest.java android/app/src/test/java/com/rtc/worddictation/StudyPagerTest.java
           cp native/AiWordStoreTest.java android/app/src/test/java/com/rtc/worddictation/AiWordStoreTest.java
           cp native/ai-engine.js android/app/src/main/assets/ai-engine.js
           cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
@@ -137,6 +140,8 @@ jobs:
               }
               implementation 'org.apache.commons:commons-compress:1.27.1'
               implementation 'org.mozilla:rhino:1.7.15'
+              implementation 'androidx.viewpager2:viewpager2:1.1.0'
+              implementation 'androidx.webkit:webkit:1.12.1'
               testImplementation 'junit:junit:4.13.2'
               testImplementation 'org.robolectric:robolectric:4.14.1'
           }
@@ -230,9 +235,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - Agent 编排页面与任意数量内容块，支持逐块显隐
-          - 取消固定每页条数，页面与条目可设置显示数量
-          - 上下滑页，长内容滚动阅读，保存阅读位置
+          - 恢复紧凑列表排版，短内容并排、长内容上下排列
+          - Android 原生竖向 ViewPager2，支持跟手拖动、惯性和松手吸附
+          - 长内容页内滚动，保留显隐、白名单和阅读进度
           - 保留旧词库与白名单、语音及后台 AI 连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
