@@ -25,6 +25,10 @@ public class InstallResultActivity extends Activity {
 
     @SuppressWarnings("deprecation")
     private void handle(Intent intent) {
+        if (intent == null || !intent.hasExtra(PackageInstaller.EXTRA_STATUS)) {
+            diag("result_missing", "没有收到系统安装状态，不能判断安装失败；可回到应用重试");
+            finish(); return;
+        }
         int status = intent.getIntExtra(
                 PackageInstaller.EXTRA_STATUS,
                 PackageInstaller.STATUS_FAILURE

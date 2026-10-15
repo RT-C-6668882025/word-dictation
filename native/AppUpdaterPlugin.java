@@ -2,13 +2,15 @@ package com.rtc.worddictation;
 
 import android.content.ClipData;
 import android.content.Intent;
-import android.app.PendingIntent;
-import android.app.ActivityOptions;
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
+
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
-import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -22,7 +24,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.*;
 import java.net.*;
 import java.security.MessageDigest;
-import java.util.List;
 import java.util.concurrent.*;
 
 @CapacitorPlugin(name = "AppUpdater")
@@ -41,6 +42,9 @@ public class AppUpdaterPlugin extends Plugin {
     @PluginMethod
     public void getUpdateDiagnostics(PluginCall call) {
         SharedPreferences p = getContext().getSharedPreferences(DIAG_PREFS, 0);
+        String stage = p.getString("stage", "");
+        if ((stage.equals("system_installer") || stage.equals("install_incomplete")) && installedTarget())
+            diag("install_success", "已确认目标版本安装完成");
         JSObject out = new JSObject();
         out.put("stage", p.getString("stage", ""));
         out.put("detail", p.getString("detail", ""));
@@ -58,7 +62,6 @@ public class AppUpdaterPlugin extends Plugin {
         File apk = pendingApk();
         if (!apk.isFile()) return false;
         try {
-            diag("retry_validate", "验证已下载 APK");
             validateApk(apk, "");
             return true;
         } catch (Exception e) {
@@ -91,11 +94,7 @@ public class AppUpdaterPlugin extends Plugin {
                 return;
             }
             diag("retry_install", "重新提交系统安装");
-            installWithPackageInstaller(apk);
-            JSObject out = new JSObject();
-            out.put("pending", true);
-            out.put("installer", "PackageInstaller.Session");
-            call.resolve(out);
+            openSystemInstaller(call, apk);
         } catch (Exception e) {
             diag("retry_failed", e.getMessage());
             call.reject("继续安装失败：" + e.getMessage());
@@ -162,14 +161,8 @@ public class AppUpdaterPlugin extends Plugin {
                             call.resolve(out);
                             return;
                         }
-                        diag("session", "提交 PackageInstaller.Session");
-                        installWithPackageInstaller(apk);
-                        diag("system_confirm", "等待系统安装确认");
-                        JSObject out = new JSObject();
-                        out.put("downloaded", true);
-                        out.put("installer", "PackageInstaller.Session");
-                        out.put("pending", true);
-                        call.resolve(out);
+                        diag("installer", "从前台打开系统安装器");
+                        openSystemInstaller(call, apk);
                     } catch (Exception e) { diag("install_launch_failed", e.getMessage()); call.reject("启动安装失败：" + e.getMessage()); }
                 });
             } catch (Exception e) { diag("update_failed", e.getMessage()); call.reject("更新下载失败：" + e.getMessage()); }
@@ -177,51 +170,61 @@ public class AppUpdaterPlugin extends Plugin {
         });
     }
 
-    private void installWithPackageInstaller(File apk) throws Exception {
-        PackageInstaller installer = getContext().getPackageManager().getPackageInstaller();
-        PackageInstaller.SessionParams params =
-                new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        params.setAppPackageName(getContext().getPackageName());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
-        }
-        int sessionId = installer.createSession(params);
-        PackageInstaller.Session session = null;
-        try {
-            session = installer.openSession(sessionId);
-            try (InputStream in = new BufferedInputStream(new FileInputStream(apk));
-                 OutputStream out = session.openWrite("base.apk", 0, apk.length())) {
-                byte[] buffer = new byte[128 * 1024];
-                int n;
-                while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
-                session.fsync(out);
-            }
+    @SuppressWarnings("deprecation")
+    static Intent systemInstallIntent(Uri uri) {
+        Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+        intent.setDataAndType(uri, "application/vnd.android.package-archive");
+        intent.setClipData(ClipData.newRawUri("APK", uri));
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
+        return intent;
+    }
 
-            Intent result = new Intent(getContext(), InstallResultActivity.class);
-            result.setAction("com.rtc.worddictation.INSTALL_RESULT");
-            int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) pendingFlags |= PendingIntent.FLAG_MUTABLE;
-            PendingIntent pending;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ActivityOptions options = ActivityOptions.makeBasic();
-                options.setPendingIntentCreatorBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                );
-                pending = PendingIntent.getActivity(
-                        getContext(), sessionId, result, pendingFlags, options.toBundle()
-                );
-            } else {
-                pending = PendingIntent.getActivity(
-                        getContext(), sessionId, result, pendingFlags
-                );
-            }
-            diag("session_committing", "sessionId=" + sessionId + " · BAL creator opt-in=" + (Build.VERSION.SDK_INT >= 34));
-            session.commit(pending.getIntentSender());
-        } catch (Exception e) {
-            try { installer.abandonSession(sessionId); } catch (Exception ignored) {}
-            throw e;
-        } finally {
-            if (session != null) session.close();
+    private void openSystemInstaller(PluginCall call, File apk) throws Exception {
+        Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".updater", apk);
+        PackageInfo target = getContext().getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+        if (target == null) throw new Exception("APK 无法解析");
+        long version = Build.VERSION.SDK_INT >= 28 ? target.getLongVersionCode() : target.versionCode;
+        getContext().getSharedPreferences(DIAG_PREFS, 0).edit().putLong("target_version", version).apply();
+        Intent intent = systemInstallIntent(uri);
+        diag("system_installer", "已从前台打开系统安装器，等待系统确认；APK 已保留");
+        try { startActivityForResult(call, intent, "systemInstallResult"); }
+        catch (ActivityNotFoundException unavailable) {
+            intent.setAction(Intent.ACTION_VIEW);
+            startActivityForResult(call, intent, "systemInstallResult");
+        }
+    }
+
+    static String resultDetail(int resultCode, Intent data) {
+        String message = data == null ? null : data.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+        String detail = resultCode == Activity.RESULT_OK ? "系统报告安装成功"
+                : "系统安装未完成（可能取消或被拦截），APK 已保留，可重试";
+        detail += "\nresultCode=" + resultCode;
+        if (data != null && data.hasExtra("android.intent.extra.INSTALL_RESULT"))
+            detail += "\ninstallResult=" + data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0);
+        if (message != null && !message.isEmpty()) detail += "\n" + message;
+        return detail;
+    }
+
+    private boolean installedTarget() {
+        long target = getContext().getSharedPreferences(DIAG_PREFS, 0).getLong("target_version", 0);
+        try {
+            PackageInfo current = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            long version = Build.VERSION.SDK_INT >= 28 ? current.getLongVersionCode() : current.versionCode;
+            return target > 0 && version >= target;
+        } catch (Exception e) { return false; }
+    }
+
+    @ActivityCallback private void systemInstallResult(PluginCall call, ActivityResult result) {
+        boolean success = result.getResultCode() == Activity.RESULT_OK || installedTarget();
+        String detail = resultDetail(success ? Activity.RESULT_OK : result.getResultCode(), result.getData());
+        diag(success ? "install_success" : "install_incomplete", detail);
+        if (call != null) {
+            JSObject out = new JSObject();
+            out.put("pending", !success && hasValidPendingApk());
+            out.put("installed", success);
+            out.put("message", detail);
+            call.resolve(out);
         }
     }
 

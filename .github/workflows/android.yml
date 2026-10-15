@@ -81,6 +81,7 @@ jobs:
           cp native/AiWordStore.java android/app/src/main/java/com/rtc/worddictation/AiWordStore.java
           mkdir -p android/app/src/test/java/com/rtc/worddictation
           cp native/StudyPagerTest.java android/app/src/test/java/com/rtc/worddictation/StudyPagerTest.java
+          cp native/AppUpdaterTest.java android/app/src/test/java/com/rtc/worddictation/AppUpdaterTest.java
           cp native/AiWordStoreTest.java android/app/src/test/java/com/rtc/worddictation/AiWordStoreTest.java
           cp native/ai-engine.js android/app/src/main/assets/ai-engine.js
           cp native/AppUpdaterPlugin.java android/app/src/main/java/com/rtc/worddictation/AppUpdaterPlugin.java
@@ -91,7 +92,8 @@ jobs:
           cat > android/app/src/main/res/xml/updater_paths.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <paths xmlns:android="http://schemas.android.com/apk/res/android">
-              <cache-path name="updates" path="." />
+              <cache-path name="cached_updates" path="updates/" />
+              <files-path name="updates" path="updates/" />
           </paths>
           EOF
           python3 - <<'PY'
@@ -235,9 +237,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 恢复紧凑列表排版，短内容并排、长内容上下排列
-          - Android 原生竖向 ViewPager2，支持跟手拖动、惯性和松手吸附
-          - 长内容页内滚动，保留显隐、白名单和阅读进度
+          - 修复应用内安装确认流程，直接打开系统安装器
+          - 完整保留安装结果，失败或中止后支持重试
+          - 更新时重新检查最新版，避免一直复用旧安装包
           - 保留旧词库与白名单、语音及后台 AI 连接"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
