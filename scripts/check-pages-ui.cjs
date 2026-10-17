@@ -39,7 +39,7 @@ try{
   await active().getByRole('button',{name:'显示内容块 2',exact:true}).click();await active().locator('.katex').first().waitFor();assert.equal(await active().locator('pre code').count(),1);assert.equal(await page.evaluate(()=>window.pageExecuted),undefined);assert.equal(external,false);
   await active().locator('.pageScroller').evaluate(e=>e.scrollTop=0);const before=await page.locator('.pageViewport').evaluate(e=>e.scrollTop);if(width===412){await drag(.3);await page.waitForTimeout(500);assert(Math.abs(await page.locator('.pageViewport').evaluate(e=>e.scrollTop)-before)<5,'long page reading must not skip to next page')}
   await page.getByRole('button',{name:'下一页 ↓',exact:true}).click();await status(3);await page.getByRole('button',{name:'↑ 上一页',exact:true}).click();await status(2);
-  await page.locator('.homeBtn').click();await page.locator('.book').click();await status(2);
+  await page.locator('.homeBtn').click();await page.locator('.book').click();await page.getByRole('button',{name:'整页看',exact:true}).click();await status(2);
   if(width===360){await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').nth(2).click();await active().locator('[data-entry-id=c]').waitFor();assert.equal(await active().locator('.contentEntry').count(),3)}
  }
  // Exercise the same local page renderer used inside each native ViewPager2 page.
