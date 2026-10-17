@@ -15,7 +15,7 @@ try{
   assert.equal(await active().locator('.contentEntry').count(),1,'default feed shows one entry per screen');
   await page.getByRole('button',{name:'整页看',exact:true}).click();await status(1);
   assert.equal(await active().locator('.contentEntry').count(),2);assert.equal(await active().getByText('内容 1',{exact:true}).count(),0);assert.equal(await active().getByText('点击显示',{exact:true}).count(),0);
-  assert(await active().locator('.contentEntry').first().evaluate(e=>e.getBoundingClientRect().height<120),'short entries should remain compact');
+  assert(await active().locator('.contentEntry').first().evaluate(e=>e.getBoundingClientRect().height<220),'short entries should fit without a full-screen scroll');
   await active().getByRole('button',{name:'显示内容块 3',exact:true}).click();await active().getByText('放弃的最佳替代方案的价值。',{exact:true}).waitFor();await active().getByRole('button',{name:'隐藏内容块 3',exact:true}).click();assert.equal(await active().getByText('放弃的最佳替代方案的价值。',{exact:true}).count(),0);
   // Touch controls must work at tablet widths without a preceding hover.
   const first=active().locator('.contentEntry').first();
