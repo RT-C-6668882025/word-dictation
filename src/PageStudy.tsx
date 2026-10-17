@@ -3,8 +3,8 @@ import {bookPages,needIds,type Book} from './wordbook';
 import {StudyPageContent,type StudyPageModel} from './StudyPageContent';
 import {useNativeStudyPager} from './useNativeStudyPager';
 
-type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
-export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak}:Props){
+type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onOpenMenu?:()=>void;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
+export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOpenMenu=()=>{},onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak}:Props){
  const pages=useMemo(()=>bookPages(book),[book]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
  const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
  const [scope,setScope]=useState<'all'|'need'>('all'),[feedIndex,setFeedIndex]=useState(0),[reset,setReset]=useState(0);
@@ -49,7 +49,7 @@ export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onCl
  const activeIndex=Math.max(0,Math.min(feedIndex,feed.length-1));
  const activeModels:StudyPageModel[]=feed.length?feed.map(item=>item.model):[{page:{id:'feed-empty',word_ids:[],columns:1},entries:[],scope:'all',count:null,reset}];
  const selectIndex=(index:number)=>{const item=feed[index];if(!item)return;setFeedIndex(index);if(item.source!==safe)onPage(item.source)};
- const {native,error}=useNativeStudyPager(viewport,activeModels,activeIndex,suspended,selectIndex,onNeed,onSpeak);
+ const {native,error}=useNativeStudyPager(viewport,activeModels,activeIndex,suspended,selectIndex,onNeed,onSpeak,onOpenMenu);
  useEffect(()=>{const index=feed.findIndex(item=>item.source===safe);setFeedIndex(index>=0?index:0)},[book.id]);
  useEffect(()=>{if(!targetId.current)return;const index=feed.findIndex(item=>item.ids.includes(targetId.current!));setFeedIndex(index>=0?index:Math.min(feedIndex,Math.max(0,feed.length-1)));targetId.current=null},[feed]);
  useEffect(()=>{if(!focusId)return;setScope('all');const index=feed.findIndex(item=>item.ids.includes(focusId));if(index>=0)setFeedIndex(index)},[focusId,feed]);

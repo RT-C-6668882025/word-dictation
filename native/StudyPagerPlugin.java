@@ -117,6 +117,7 @@ public class StudyPagerPlugin extends Plugin {
                     String action=message.optString("action"),value=message.optString("value");
                     if(action.equals("need")){JSONArray entries=model.optJSONArray("entries");if(entries!=null)for(int i=0;i<entries.length();i++)if(value.equals(entries.optJSONObject(i).optString("id"))){event("need",value,-1);break;}}
                     if(action.equals("speak")&&value.length()<=800000)event("speak",value,-1);
+                    if(action.equals("menu"))event("menu",null,-1);
                 });
             }},"StudyPageHost");
             web.setWebViewClient(new WebViewClient(){
