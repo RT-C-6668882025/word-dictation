@@ -244,7 +244,7 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 默认逐条竖向刷词，支持原生 Android 惯性翻页与整页模式切换
+          - 按实际视口高度自动将多条词汇装入一屏，保留原生 Android 竖向翻页
           - Agent 可为每个内容块独立设置初始显隐，并选择三种预设版式
           - 调整朗读与显隐触控区域，保持原有配色、词库及白名单"
 

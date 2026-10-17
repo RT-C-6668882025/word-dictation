@@ -12,7 +12,7 @@ try{
  const drag=async(fraction,release=true)=>{const r=await page.locator('.pageViewport').boundingBox(),x=r.x+r.width*.6,y=r.y+r.height*.8;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-r.height*fraction*i/12}]});await page.waitForTimeout(20)}if(release)await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});return r};
  for(const [width,height] of [[360,780],[412,915],[800,1280],[1280,800],[844,390]]){
   await page.setViewportSize({width,height});await page.goto('http://127.0.0.1:4186');await page.evaluate(()=>localStorage.clear());await page.reload();await page.locator('#bookName').fill('紧凑排版'.repeat(20));await page.locator('#raw').fill(JSON.stringify(data));await page.getByRole('button',{name:'创建词库',exact:true}).click();await status(1);
-  assert.equal(await active().locator('.contentEntry').count(),1,'default feed shows one entry per screen');
+  assert.equal(await active().locator('.contentEntry').count(),2,'default feed keeps the Agent page grouping');
   await page.getByRole('button',{name:'整页看',exact:true}).click();await status(1);
   assert.equal(await active().locator('.contentEntry').count(),2);assert.equal(await active().getByText('内容 1',{exact:true}).count(),0);assert.equal(await active().getByText('点击显示',{exact:true}).count(),0);
   assert(await active().locator('.contentEntry').first().evaluate(e=>e.getBoundingClientRect().height<220),'short entries should fit without a full-screen scroll');
@@ -40,7 +40,19 @@ try{
   await active().locator('.pageScroller').evaluate(e=>e.scrollTop=0);const before=await page.locator('.pageViewport').evaluate(e=>e.scrollTop);if(width===412){await drag(.3);await page.waitForTimeout(500);assert(Math.abs(await page.locator('.pageViewport').evaluate(e=>e.scrollTop)-before)<5,'long page reading must not skip to next page')}
   await page.getByRole('button',{name:'下一页 ↓',exact:true}).click();await status(3);await page.getByRole('button',{name:'↑ 上一页',exact:true}).click();await status(2);
   await page.locator('.homeBtn').click();await page.locator('.book').click();await page.getByRole('button',{name:'整页看',exact:true}).click();await status(2);
-  if(width===360){await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').nth(2).click();await active().locator('[data-entry-id=c]').waitFor();assert.equal(await active().locator('.contentEntry').count(),1,'index opens the selected entry in feed mode')}
+  if(width===360){await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').nth(2).click();await active().locator('[data-entry-id=c]').waitFor();assert.equal(await active().locator('.contentEntry').count(),3,'index reveals the selected entry in its page')}
+ }
+ // A legacy import uses the measured viewport: several words share a swipe page,
+ // and changing the device height changes how many rows fit.
+ for(const [width,height] of [[412,780],[800,1280]]){
+  await page.setViewportSize({width,height});await page.goto('http://127.0.0.1:4186');await page.evaluate(()=>localStorage.clear());await page.reload();
+  await page.locator('#raw').fill(Array.from({length:30},(_,i)=>`word${i+1},meaning${i+1}`).join('\n'));
+  await page.getByRole('button',{name:'创建词库',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.snapPage.isActive .contentEntry')&&document.querySelectorAll('.snapPage').length>1);
+  const amount=await active().locator('.contentEntry').count();assert(amount>1&&amount<30,`measured feed must fit several words, got ${amount}`);
+  if(width===412)var phoneAmount=amount;else assert(amount>phoneAmount,'taller tablet should fit more rows than phone');
+  await page.getByRole('button',{name:'下一页 ↓',exact:true}).click();await status(2);
+  assert.equal(await active().getByText('word1',{exact:true}).count(),0,'next swipe advances the group');
  }
  // Exercise the same local page renderer used inside each native ViewPager2 page.
  await page.goto('http://127.0.0.1:4186/pager.html');await page.waitForFunction(()=>typeof window.receiveStudyPage==='function');
