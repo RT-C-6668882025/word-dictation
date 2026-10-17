@@ -7,8 +7,9 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
 不再使用固定正反面和固定每页条数。词库包含有序 pages，页面包含有序 entries，条目包含有序 blocks。
 
 - 页面：id、title（可选）、columns（1/2/3，默认 1；窄屏自动单列）、visible_count（初始显示前几条，默认全部）。
-- 条目：id、blocks、visible_count（初始显示前几个内容块，默认 1，可为 0）、in_whitelist（默认 true；整体替换保留同 ID 的原状态）。
-- 内容块：id、label（可选）、text、format（text/markdown，默认 text）。不接受自定义 HTML、CSS 或脚本布局。
+- 条目：id、blocks、layout（auto/compact/reading，默认 auto）、visible_count（旧词库兼容默认，未单独指定的块按前 N 个显示）、in_whitelist（默认 true）。
+- 内容块：id、label（可选）、text、format（text/markdown，默认 text）、initially_visible（可选，独立指定初始显隐）。数组顺序就是逐层揭示的顺序。不接受自定义 HTML、CSS 或脚本布局。
+- 刷屏与操作位置由应用固定；Agent 只填内容、选初始显隐和三种预设版式。见 [Agent 排版规则](../docs/agent-layout-guide.md)。
 - 页面和条目没有固定条数；整次请求仍受中继 1 MiB 传输容量约束。分批新增、修改和编排可处理大词库。
 
 `compose_wordbook` 新建完整词库；提供 book_id 时整体替换，需要 expected_name 精确匹配，操作前先完整读取并保留未要求改变的内容和 ID。省略的内容将被删除。`get_wordbook_pages` 从 offset（0 起）读取页面，limit 默认 1（最多 20），跟随 next_offset。单页过大时用 `get_words` 分批读取完整正文。
@@ -26,11 +27,11 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
       "entries": [
         {
           "id": "entry-1",
-          "visible_count": 1,
+          "layout": "reading",
           "blocks": [
-            {"id": "question", "label": "问题", "text": "什么是机会成本？"},
-            {"id": "hint", "label": "提示", "text": "被放弃的选择。"},
-            {"id": "answer", "label": "解析", "text": "放弃的最佳替代方案的价值。"}
+            {"id": "question", "label": "问题", "text": "什么是机会成本？", "initially_visible": true},
+            {"id": "hint", "label": "提示", "text": "被放弃的选择。", "initially_visible": false},
+            {"id": "answer", "label": "解析", "text": "放弃的最佳替代方案的价值。", "initially_visible": false}
           ]
         }
       ]
@@ -43,8 +44,8 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
 
 - compose_wordbook、get_wordbook_pages、set_wordbook_pages：整体编排、读取及重新编排页面。set_wordbook_pages 用 word_ids 指定内容归属和顺序，全部条目必须恰好出现一次；可给新页面 ID 新增页，遗漏旧页删除页；保留正文与白名单。
 - list_wordbooks、get_words、search_wordbook：查询词库、条目和所有内容块，返回出处及页码。get_words/search_wordbook 按响应容量分页，完整正文不截断，跟随 next_offset。
-- add_cards：cards 包含 blocks/visible_count，page_id 指定目标页；position 为页内从 1 开始的位置，默认追加。新增默认加入白名单。
-- update_cards：按 word_id 更新 blocks 或 visible_count，保留 ID、页面和白名单；整批有效才保存。
+- add_cards：cards 包含 blocks/layout/visible_count，page_id 指定目标页；position 为页内从 1 开始的位置，默认追加。新增默认加入白名单。
+- update_cards：按 word_id 更新 blocks、独立初始显隐或 layout，保留 ID、页面和白名单；整批有效才保存。
 - delete_cards：按 word_ids 删除内容，保留其余页面与白名单。仅在明确要求删除时使用。
 - merge_wordbooks：合并为新词库，保留源词库、各页编排和白名单；条目 ID 冲突会重新分配，不按正文去重。
 - split_wordbook：指定条目按原页序复制到新词库，保留页面和白名单。只有 move=true 且 expected_name 匹配才从源词库移走；保留空源词库。

@@ -29,7 +29,7 @@ export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
   if(a.word_ids&&a.word_ids.some((id:string)=>!selected[0].words.some(w=>w.id===id)))throw Error('包含不存在的内容 ID');
   const q=(a.query||'').trim().toLowerCase();
   const indexes=new Map(selected.map(b=>[b.id,{need:needIds(b),pages:new Map(bookPages(b).flatMap((p,i)=>p.word_ids.map(id=>[id,i+1] as [string,number])))}]));
-  const source=(b:Book,i:number)=>{const w=b.words[i],index=indexes.get(b.id)!;return {book_id:b.id,book_name:b.name,word_id:w.id,entry_number:i+1,page:index.pages.get(w.id),blocks:contentBlocks(w),visible_count:w.visible_count??1,in_whitelist:index.need.has(w.id)}};
+  const source=(b:Book,i:number)=>{const w=b.words[i],index=indexes.get(b.id)!;return {book_id:b.id,book_name:b.name,word_id:w.id,entry_number:i+1,page:index.pages.get(w.id),blocks:contentBlocks(w),visible_count:w.visible_count??1,layout:w.layout??'auto',in_whitelist:index.need.has(w.id)}};
   const hits:{book:Book,index:number}[]=[];
   for(const book of selected)book.words.forEach((w,index)=>{if((a.entry_number===undefined||index+1===a.entry_number)&&(!a.word_ids||a.word_ids.includes(w.id))&&(!q||allText(w).toLowerCase().includes(q)))hits.push({book,index})});
   const matches:any[]=[];let bytes=1024;
@@ -55,7 +55,7 @@ export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
   const offset=a.offset??0,limit=a.limit??200;if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>500)throw Error('offset >= 0；limit 为 1–500');
   if(a.query!==undefined&&typeof a.query!=='string')throw Error('query 必须为文本');
   const index={need:needIds(b),pages:new Map(bookPages(b).flatMap((p,i)=>p.word_ids.map(id=>[id,i+1] as [string,number])))};
-  const q=(a.query||'').toLowerCase();const rows=b.words.map(w=>({id:w.id,blocks:contentBlocks(w),visible_count:w.visible_count??1,page:index.pages.get(w.id),in_whitelist:index.need.has(w.id)})).filter(w=>!q||w.blocks.some(b=>b.text.toLowerCase().includes(q)));
+  const q=(a.query||'').toLowerCase();const rows=b.words.map(w=>({id:w.id,blocks:contentBlocks(w),visible_count:w.visible_count??1,layout:w.layout??'auto',page:index.pages.get(w.id),in_whitelist:index.need.has(w.id)})).filter(w=>!q||w.blocks.some(b=>b.text.toLowerCase().includes(q)));
   // Keep long-card pages within the relay's request envelope; never clip card text.
   const selected:typeof rows=[];let bytes=256;for(const row of rows.slice(offset,offset+limit)){const size=utf8Size(JSON.stringify(row))+1;if(bytes+size>800000){if(!selected.length)throw Error('单条卡片超过 MCP 单次响应容量，完整内容仍保存在设备中');break}selected.push(row);bytes+=size}
   const next=offset+selected.length;return {total:rows.length,words:selected,next_offset:next<rows.length?next:null};

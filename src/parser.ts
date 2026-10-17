@@ -1,8 +1,9 @@
 import Papa from 'papaparse';
 
 // en/zh remain compatibility aliases for previously stored libraries and Agents.
-export type ContentBlock={id:string;text:string;label?:string;format?:'text'|'markdown'};
-export type ParsedWord={id:string;blocks?:ContentBlock[];visible_count?:number;en?:string;zh?:string;front?:string;back?:string;format?:'text'|'markdown'};
+export type ContentBlock={id:string;text:string;label?:string;format?:'text'|'markdown';initially_visible?:boolean};
+export type CardLayout='auto'|'compact'|'reading';
+export type ParsedWord={id:string;blocks?:ContentBlock[];visible_count?:number;layout?:CardLayout;en?:string;zh?:string;front?:string;back?:string;format?:'text'|'markdown'};
 export const frontText=(card:ParsedWord)=>card.blocks?.[0]?.text??card.front??card.en??'';
 export const backText=(card:ParsedWord)=>card.blocks?card.blocks.slice(1).map(b=>b.text).join('\n\n'):card.back??card.zh??'';
 const uid=()=>Math.random().toString(36).slice(2);
@@ -52,15 +53,18 @@ export const parseSheetRows=(rows:unknown[][])=>rowsToWords(rows);
 
 export function parseBlockEntry(row:any):ParsedWord {
  if(!row||typeof row!=='object'||!Array.isArray(row.blocks)||!row.blocks.length)throw Error('每条内容需要至少一个内容块');
+ if(row.layout!==undefined&&!['auto','compact','reading'].includes(row.layout))throw Error('layout 只能为 auto、compact 或 reading');
  const used=new Set<string>();const blocks:ContentBlock[]=row.blocks.map((b:any)=>{
   if(!b||typeof b.text!=='string'||!b.text.trim())throw Error('内容块 text 不能为空');
   if(b.format!==undefined&&!['text','markdown'].includes(b.format))throw Error('format 只能为 text 或 markdown');
   if(b.label!==undefined&&typeof b.label!=='string')throw Error('label 必须为文本');
+  if(b.initially_visible!==undefined&&typeof b.initially_visible!=='boolean')throw Error('initially_visible 必须为布尔值');
   const id=b.id??uid();if(typeof id!=='string'||!id||used.has(id))throw Error('内容块 ID 必须非空且不重复');used.add(id);
-  return {id,text:b.text,...(b.label!==undefined?{label:b.label}:{}),format:b.format||'text'};
+  return {id,text:b.text,...(b.label!==undefined?{label:b.label}:{}),format:b.format||'text',...(b.initially_visible!==undefined?{initially_visible:b.initially_visible}:{})};
  });
  const count=row.visible_count??1;if(!Number.isInteger(count)||count<0||count>blocks.length)throw Error('visible_count 必须为 0 到内容块总数的整数');
- return {id:row.id??uid(),blocks,visible_count:count};
+ return {id:row.id??uid(),blocks,visible_count:count,...(row.layout!==undefined?{layout:row.layout}:{})};
 }
 export function contentBlocks(w:ParsedWord):ContentBlock[]{return w.blocks??[{id:'legacy-1',text:frontText(w),format:w.format},{id:'legacy-2',text:backText(w),format:w.format}]}
+export function blockInitiallyVisible(block:ContentBlock,index:number,entry:ParsedWord){return block.initially_visible??index<(entry.visible_count??1)}
 export function allText(w:ParsedWord){return contentBlocks(w).map(b=>b.text).join('\n\n')}

@@ -244,10 +244,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## Word Dictation v${VERSION}
 
-          - 修复小米等系统安装器读取 APK 被拒绝的问题
-          - 对安装器显式授予单个 APK 的只读权限
-          - 保留单词朗读和触控显隐修复
-          - 保留旧词库与白名单、语音及后台 AI 连接"
+          - 默认逐条竖向刷词，支持原生 Android 惯性翻页与整页模式切换
+          - Agent 可为每个内容块独立设置初始显隐，并选择三种预设版式
+          - 调整朗读与显隐触控区域，保持原有配色、词库及白名单"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
