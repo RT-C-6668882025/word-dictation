@@ -1,10 +1,10 @@
-import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {bookPages,needIds,type Book} from './wordbook';
 import {StudyPageContent,type StudyPageModel} from './StudyPageContent';
 import {useNativeStudyPager} from './useNativeStudyPager';
 
-type Props={book:Book;page:number;focusId?:string;suspended?:boolean;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
-export function PageStudy({book,page,focusId,suspended=false,onPage,onNeed,onSpeak}:Props){
+type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
+export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak}:Props){
  const pages=useMemo(()=>bookPages(book),[book]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
  const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
  const [scope,setScope]=useState<'all'|'need'>('all'),[feedIndex,setFeedIndex]=useState(0),[reset,setReset]=useState(0);
@@ -58,7 +58,7 @@ export function PageStudy({book,page,focusId,suspended=false,onPage,onNeed,onSpe
  useEffect(()=>{if(native||!viewport.current)return;const el=viewport.current;const observer=new ResizeObserver(()=>el.scrollTo({top:lastIndex.current*el.clientHeight,behavior:'instant'}));observer.observe(el);return()=>{observer.disconnect();clearTimeout(settleTimer.current)}},[native]);
  const move=(delta:number)=>{const next=activeIndex+delta;if(next>=0&&next<activeModels.length)selectIndex(next)};
  return <section className="pageStudy" aria-label="背记页面">
-  <div className="pageControls"><div className="scopeControl" role="group" aria-label="练习范围"><button aria-pressed={scope==='all'} className={scope==='all'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('all')}}>全部</button><button aria-pressed={scope==='need'} className={scope==='need'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('need')}}>白名单</button></div><button className="ghost" onClick={()=>setReset(r=>r+1)}>重置显隐</button></div>
+  <div className={'studyDrawerLayer'+(menuOpen?' isOpen':'')} aria-hidden={!menuOpen} onKeyDown={e=>{if(e.key==='Escape')onCloseMenu()}}><button className="studyDrawerBackdrop" tabIndex={menuOpen?0:-1} aria-label="关闭菜单" onClick={onCloseMenu}/><nav className="studyDrawer" aria-label="学习菜单"><div className="studyDrawerHeading"><b>学习菜单</b><button className="ghost" aria-label="关闭菜单" onClick={onCloseMenu}>×</button></div>{menuContent}<div className="studyDrawerDivider"/><span className="studyDrawerLabel">练习范围</span><div className="scopeControl" role="group" aria-label="练习范围"><button aria-pressed={scope==='all'} className={scope==='all'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('all');onCloseMenu()}}>全部</button><button aria-pressed={scope==='need'} className={scope==='need'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('need');onCloseMenu()}}>白名单</button></div><button className="ghost studyReset" onClick={()=>{setReset(r=>r+1);onCloseMenu()}}>重置显隐</button></nav></div>
   <div className={'pageViewport'+(native?' nativePagerSlot':' snapPager')} ref={viewport} tabIndex={0} aria-label="上下拖动翻页，松手吸附"
    onTouchStart={()=>{external.current=false;clearTimeout(settleTimer.current)}} onWheel={()=>{external.current=false}}
    onScroll={()=>{if(native||external.current)return;clearTimeout(settleTimer.current);settleTimer.current=setTimeout(()=>{const el=viewport.current;if(!el||!el.clientHeight)return;const index=Math.max(0,Math.min(activeModels.length-1,Math.round(el.scrollTop/el.clientHeight)));if(index!==lastIndex.current){lastIndex.current=index;selectIndex(index)}},100)}}

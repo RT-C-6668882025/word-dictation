@@ -16,13 +16,13 @@ try{
   if(width===412)phoneAmount=amount;else assert(amount>phoneAmount,'tablet must fit more words than phone');
   assert.equal(await page.getByRole('button',{name:'整页看',exact:true}).count(),0);
   assert(await page.locator('.pageViewport').evaluate(e=>e.clientHeight>80));
-  const first=active().locator('.contentEntry').first();await first.getByRole('button',{name:'显示内容块 2'}).click();await first.getByText('meaning1',{exact:true}).waitFor();
+  const first=active().locator('.contentEntry').first();assert.equal(await first.locator('.hiddenBlock,.hideBlock').count(),0);await first.getByRole('button',{name:'显示内容块 2'}).click();await first.getByText('meaning1',{exact:true}).waitFor();await first.getByRole('button',{name:'隐藏内容块 2'}).click();assert.equal(await first.getByText('meaning1',{exact:true}).count(),0);
   await first.getByRole('button',{name:'朗读 word1',exact:true}).tap();
   await page.screenshot({path:`layout-checks/swipe-${width}x${height}.png`});
   if(width===412){const r=await page.locator('.pageViewport').boundingBox(),x=r.x+r.width*.6,y=r.y+r.height*.8;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-r.height*.55*i/12}]});await page.waitForTimeout(20)}assert(await page.locator('.pageViewport').evaluate(e=>e.scrollTop)>15,'page follows the finger');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})}
   await page.getByRole('button',{name:'下一页 ↓',exact:true}).click();await status(2);
   assert.equal(await active().getByText('word1',{exact:true}).count(),0,'next swipe advances the group');
-  await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').last().click();await active().getByText('word122',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'打开学习菜单'}).click();await page.getByRole('button',{name:'索引',exact:true}).click();await page.locator('.indexRow').last().click();await active().getByText('word122',{exact:true}).waitFor();
  }
  // Agent-authored pages use the same viewport grouping, even if the source page
  // claims that only one of its many entries is visible.
