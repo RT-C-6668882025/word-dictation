@@ -40,7 +40,7 @@ public class AiConnectionService extends Service {
         Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent action = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
-        return builder.setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("Word Dictation · AI 连接")
+        return builder.setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("WordTok · AI 连接")
             .setContentText(text).setContentIntent(action).setOngoing(true).setOnlyAlertOnce(true).build();
     }
     private void state(String state, String text) {

@@ -242,17 +242,18 @@ jobs:
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           TAG="v${VERSION}"
-          NOTES="## Word Dictation v${VERSION}
+          NOTES="## WordTok v${VERSION}
 
+          - 应用名称更新为 WordTok，保留原安装身份与本地词库
           - 轻触内容块直接切换显隐；侧边学习菜单整合首页、索引、语音、范围与重置显隐
           - Agent 可为每个内容块独立设置初始显隐，并选择三种预设版式
           - 调整朗读与显隐触控区域，保持原有配色、词库及白名单"
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
+            gh release edit "${TAG}" --target "${GITHUB_SHA}" --title "WordTok v${VERSION}" --notes "${NOTES}" --latest
             gh release upload "${TAG}" word-dictation.apk --clobber
           else
-            gh release create "${TAG}" word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation v${VERSION}" --notes "${NOTES}" --latest
+            gh release create "${TAG}" word-dictation.apk --target "${GITHUB_SHA}" --title "WordTok v${VERSION}" --notes "${NOTES}" --latest
           fi
 
           # Keep the stable /latest/download URL working for old clients.
@@ -260,7 +261,7 @@ jobs:
             gh release edit latest --target "${GITHUB_SHA}"
             gh release upload latest word-dictation.apk --clobber
           else
-            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "Word Dictation APK" --notes "稳定下载入口。" 
+            gh release create latest word-dictation.apk --target "${GITHUB_SHA}" --title "WordTok APK" --notes "稳定下载入口。"
           fi
 
       - name: Remove signing key

@@ -14,9 +14,9 @@ export default defineConfig(() => {
       ...(!android ? [VitePWA({
         registerType: 'autoUpdate',
         manifest: {
-          name: 'Word Dictation',
-          short_name: '默写',
-          description: '极简批量单词默写器',
+          name: 'WordTok',
+          short_name: 'WordTok',
+          description: '刷词、知识点与默写',
           theme_color: '#111111',
           background_color: '#f4f3ef',
           display: 'standalone',

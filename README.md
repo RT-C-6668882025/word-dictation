@@ -1,6 +1,6 @@
 <div align="center">
 
-# Word Dictation
+# WordTok
 
 ### 只需要一支笔，一张纸，即可开始。
 
@@ -10,7 +10,7 @@
 
 [下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk)
 
-当前版本：**v0.5.8**
+当前版本：**v0.5.9**
 
 </div>
 
