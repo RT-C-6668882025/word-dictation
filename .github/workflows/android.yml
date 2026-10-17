@@ -35,7 +35,7 @@ jobs:
           VITE_AI_RELAY_URL: ${{ inputs.ai_relay_url || vars.AI_RELAY_URL }}
       - name: Verify native JavaScript engine
         run: |
-          curl -fsSL https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.7.15/rhino-1.7.15.jar -o /tmp/rhino.jar
+          curl -fsSL https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.7.15.1/rhino-1.7.15.1.jar -o /tmp/rhino.jar
           cat native/ai-engine.js scripts/check-native-ai.js > /tmp/native-ai-suite.js
           java -cp /tmp/rhino.jar org.mozilla.javascript.tools.shell.Main -version 200 -opt -1 /tmp/native-ai-suite.js
           npx --yes tsx scripts/check-library-management.ts
