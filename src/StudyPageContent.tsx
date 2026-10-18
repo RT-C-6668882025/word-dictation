@@ -2,13 +2,14 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {CardContent} from './CardContent';
 import {blockInitiallyVisible,contentBlocks,type ParsedWord} from './parser';
 import type {BookPage} from './wordbook';
-export type StudyPageModel={page:BookPage;entries:(ParsedWord&{needed:boolean})[];scope:'all'|'need';count:number|null;reset:number;focusId?:string};
+export type StudyPageModel={page:BookPage;entries:(ParsedWord&{needed:boolean})[];scope:'all'|'need';count:number|null;reset:number;focusId?:string;bulk?:{revision:number;side:0|1;visible:boolean}};
 export function StudyPageContent({model,onNeed,onSpeak}:{model:StudyPageModel;onNeed:(id:string)=>void;onSpeak:(text:string)=>void}){
  const {page,entries,scope,count,reset,focusId}=model;
  const [revealed,setRevealed]=useState<Record<string,boolean>>({});const root=useRef<HTMLDivElement>(null);
  const signature=useMemo(()=>JSON.stringify(entries.map(w=>[w.id,w.visible_count,w.layout,w.blocks?.map(b=>[b.id,b.initially_visible])])),[entries]);
  useEffect(()=>setRevealed({}),[page.id,reset,signature]);
  const eligible=entries.filter(w=>scope==='all'||w.needed),visible=Math.min(count??page.visible_count??eligible.length,eligible.length),rows=eligible.slice(0,visible);
+ useEffect(()=>{if(!model.bulk)return;const {side,visible:show}=model.bulk;setRevealed(previous=>{const next={...previous};for(const word of rows){const block=contentBlocks(word)[side];if(block)next[word.id+':'+block.id]=show}return next})},[model.bulk?.revision,page.id]);
  useEffect(()=>{if(!focusId)return;const frame=requestAnimationFrame(()=>Array.from(root.current?.querySelectorAll<HTMLElement>('[data-entry-id]')??[]).find(el=>el.dataset.entryId===focusId)?.scrollIntoView({block:'nearest'}));return()=>cancelAnimationFrame(frame)},[focusId,visible]);
  return <div className={'composedPage'+(page.id.startsWith('feed:')?' feedEntry':'')} ref={root}>
   {page.title&&<h2 className="pageTitle">{page.title}</h2>}
