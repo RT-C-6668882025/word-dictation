@@ -22,6 +22,7 @@ import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsKittenModelConfig;
+import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
 import com.k2fsa.sherpa.onnx.WaveReader;
 import com.k2fsa.sherpa.onnx.WaveData;
 
@@ -68,6 +69,9 @@ public class PocketTtsPlugin extends Plugin {
     private static final String GHPROXY_NET_URL = "https://ghproxy.net/" + OFFICIAL_URL;
     private static final String GITHUBPROXY_CC_URL = "https://githubproxy.cc/" + OFFICIAL_URL;
     private static final String MODEL_SHA256 = "85faaea7511ca9d1d2f251fed0a4553bdf0d1ee046102fa60ddd8046c751f76f";
+    private static final String CHINESE_MODEL_NAME = "vits-melo-tts-zh_en";
+    private static final String CHINESE_URL =
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" + CHINESE_MODEL_NAME + ".tar.bz2";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ThreadPoolExecutor speechWorker = new ThreadPoolExecutor(
@@ -76,6 +80,7 @@ public class PocketTtsPlugin extends Plugin {
     private final AtomicInteger pocketSpeakGeneration = new AtomicInteger(0);
     private volatile boolean downloading = false;
     private OfflineTts tts;
+    private OfflineTts chineseTts;
 
     private File modelParent() {
         return new File(getContext().getFilesDir(), "voice");
@@ -83,6 +88,13 @@ public class PocketTtsPlugin extends Plugin {
 
     private File modelDir() {
         return new File(modelParent(), MODEL_NAME);
+    }
+    private File chineseDir() { return new File(modelParent(), CHINESE_MODEL_NAME); }
+    private boolean chineseInstalled() {
+        File d = chineseDir();
+        return new File(d, "model.onnx").length() > 50_000_000L
+                && new File(d, "lexicon.txt").isFile()
+                && new File(d, "tokens.txt").isFile();
     }
 
     private boolean installed() {
@@ -97,11 +109,62 @@ public class PocketTtsPlugin extends Plugin {
     public void getStatus(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("installed", installed());
+        ret.put("chineseInstalled", chineseInstalled());
         ret.put("downloading", downloading);
         ret.put("model", "KittenTTS Micro v0.8");
         ret.put("downloadMB", 42);
         ret.put("diskMB", 60);
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void downloadChineseModel(PluginCall call) {
+        if (chineseInstalled()) { getStatus(call); return; }
+        if (downloading) { call.reject("语音正在下载"); return; }
+        downloading = true;
+        worker.execute(() -> {
+            File archive = new File(getContext().getCacheDir(), CHINESE_MODEL_NAME + ".tar.bz2");
+            try {
+                String[] urls = { "https://ghfast.top/" + CHINESE_URL, "https://ghproxy.net/" + CHINESE_URL, CHINESE_URL };
+                Exception failure = null;
+                boolean complete = false;
+                for (String url : urls) {
+                    try {
+                        notifyDownloadState("正在下载中文语音", url, 1);
+                        downloadResumable(url, archive);
+                        if (archive.length() < 40_000_000L || archive.length() > 250_000_000L)
+                            throw new Exception("模型大小异常");
+                        if (!modelParent().exists() && !modelParent().mkdirs()) throw new Exception("无法创建模型目录");
+                        extractTarBz2(archive, modelParent());
+                        if (!chineseInstalled()) throw new Exception("模型文件不完整");
+                        complete = true;
+                        break;
+                    } catch (Exception e) { failure = e; archive.delete(); deleteRecursive(chineseDir()); }
+                }
+                if (!complete) throw new Exception(failure == null ? "下载失败" : failure.getMessage());
+                JSObject progress = new JSObject();
+                progress.put("progress", 100);
+                progress.put("chineseInstalled", true);
+                notifyListeners("downloadProgress", progress);
+                JSObject result = new JSObject();
+                result.put("chineseInstalled", true);
+                call.resolve(result);
+            } catch (Exception e) { call.reject("中文语音下载失败：" + e.getMessage()); }
+            finally { downloading = false; archive.delete(); }
+        });
+    }
+
+    @PluginMethod
+    public void deleteChineseModel(PluginCall call) {
+        worker.execute(() -> {
+            synchronized (this) {
+                if (chineseTts != null) { chineseTts.release(); chineseTts = null; }
+            }
+            deleteRecursive(chineseDir());
+            JSObject result = new JSObject();
+            result.put("chineseInstalled", false);
+            call.resolve(result);
+        });
     }
 
     @PluginMethod
@@ -216,6 +279,8 @@ public class PocketTtsPlugin extends Plugin {
         String text = call.getString("text", "").trim();
         float speed = call.getFloat("speed", 1.0f);
         String requestedEngine = call.getString("engine", "").trim();
+        String language = call.getString("language", "en-US");
+        Locale locale = Locale.forLanguageTag(language);
         if (text.isEmpty()) { call.reject("没有可朗读的单词"); return; }
         final float safeSpeed = Math.max(0.5f, Math.min(2.0f, speed));
         getActivity().runOnUiThread(() -> {
@@ -241,17 +306,17 @@ public class PocketTtsPlugin extends Plugin {
                 engines.clear();
                 engines.add("");
             }
-            speakWithPersistentSystemEngine(call, text, safeSpeed, engines, 0);
+            speakWithPersistentSystemEngine(call, text, safeSpeed, locale, engines, 0);
         });
     }
 
-    private void speakWithPersistentSystemEngine(PluginCall call, String text, float speed,
+    private void speakWithPersistentSystemEngine(PluginCall call, String text, float speed, Locale locale,
                                                   List<String> engines, int index) {
-        if (index >= engines.size()) { call.reject("系统语音引擎均无法使用英语"); return; }
+        if (index >= engines.size()) { call.reject("系统语音缺少" + locale.getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) + "语音数据，请在系统设置中安装对应语言的语音包"); return; }
         String packageName = engines.get(index);
 
         if (systemTts != null && systemTtsReady && packageName.equals(systemTtsPackage)) {
-            speakNow(call, text, speed);
+            speakNow(call, text, speed, locale);
             return;
         }
 
@@ -274,15 +339,7 @@ public class PocketTtsPlugin extends Plugin {
                 if (systemTts != null) systemTts.shutdown();
                 systemTts = null;
                 systemTtsReady = false;
-                speakWithPersistentSystemEngine(call, text, speed, engines, index + 1);
-                return;
-            }
-            int lang = systemTts.setLanguage(Locale.US);
-            if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
-                systemTts.shutdown();
-                systemTts = null;
-                systemTtsReady = false;
-                speakWithPersistentSystemEngine(call, text, speed, engines, index + 1);
+                speakWithPersistentSystemEngine(call, text, speed, locale, engines, index + 1);
                 return;
             }
             systemTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
@@ -302,16 +359,21 @@ public class PocketTtsPlugin extends Plugin {
                 }
             });
             systemTtsReady = true;
-            speakNow(call, text, speed);
+            speakNow(call, text, speed, locale);
         };
         holder[0] = packageName.isEmpty()
                 ? new TextToSpeech(getContext(), listener)
                 : new TextToSpeech(getContext(), listener, packageName);
     }
 
-    private void speakNow(PluginCall call, String text, float speed) {
+    private void speakNow(PluginCall call, String text, float speed, Locale locale) {
         if (systemTts == null || !systemTtsReady) { call.reject("系统语音尚未就绪"); return; }
         stopSystemSpeech();
+        int language = systemTts.setLanguage(locale);
+        if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+            call.reject("系统语音缺少" + locale.getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) + "语音数据，请在系统设置中安装对应语言的语音包");
+            return;
+        }
         systemTts.setSpeechRate(speed);
         String id = "wd-" + UUID.randomUUID();
         activeSystemCall = call;
@@ -344,6 +406,15 @@ public class PocketTtsPlugin extends Plugin {
 
     @PluginMethod
     public void speak(PluginCall call) {
+        speakOffline(call, false);
+    }
+
+    @PluginMethod
+    public void speakChinese(PluginCall call) {
+        speakOffline(call, true);
+    }
+
+    private void speakOffline(PluginCall call, boolean chinese) {
         String text = call.getString("text", "").trim();
         float speed = call.getFloat("speed", 1.0f);
         int sid = call.getInt("sid", 1);
@@ -351,8 +422,8 @@ public class PocketTtsPlugin extends Plugin {
             call.reject("没有可朗读的单词");
             return;
         }
-        if (!installed()) {
-            call.reject("MODEL_NOT_INSTALLED");
+        if (chinese ? !chineseInstalled() : !installed()) {
+            call.reject(chinese ? "请先下载中文离线语音模型" : "MODEL_NOT_INSTALLED");
             return;
         }
         final float safeSpeed = Math.max(0.5f, Math.min(2.0f, speed));
@@ -361,8 +432,8 @@ public class PocketTtsPlugin extends Plugin {
         speechWorker.execute(() -> {
             AudioTrack track = null;
             try {
-                ensureTts();
-                int sampleRate = tts.sampleRate();
+                OfflineTts engine = chinese ? ensureChineseTts() : ensureTts();
+                int sampleRate = engine.sampleRate();
                 int minBuffer = AudioTrack.getMinBufferSize(
                         sampleRate,
                         AudioFormat.CHANNEL_OUT_MONO,
@@ -383,14 +454,14 @@ public class PocketTtsPlugin extends Plugin {
                         AudioManager.AUDIO_SESSION_ID_GENERATE
                 );
                 GenerationConfig config = new GenerationConfig();
-                config.setSid(Math.max(0, Math.min(7, sid)));
+                config.setSid(chinese ? 0 : Math.max(0, Math.min(7, sid)));
                 config.setSpeed(safeSpeed);
                 config.setSilenceScale(0.15f);
 
                 // Avoid generateWithConfigAndCallback(): sherpa-onnx has a known
                 // Android JNI callback threading crash. Words are short, so render
                 // the complete clip first and then play it.
-                GeneratedAudio audio = tts.generateWithConfig(text, config);
+                GeneratedAudio audio = engine.generateWithConfig(text, config);
                 if (audio == null || audio.getSamples() == null || audio.getSamples().length == 0) {
                     throw new Exception("没有生成音频");
                 }
@@ -422,8 +493,8 @@ public class PocketTtsPlugin extends Plugin {
         });
     }
 
-    private synchronized void ensureTts() {
-        if (tts != null) return;
+    private synchronized OfflineTts ensureTts() {
+        if (tts != null) return tts;
         File d = modelDir();
         OfflineTtsKittenModelConfig kitten = new OfflineTtsKittenModelConfig();
         kitten.setModel(new File(d, "model.onnx").getAbsolutePath());
@@ -438,12 +509,34 @@ public class PocketTtsPlugin extends Plugin {
         config.setModel(model);
         config.setMaxNumSentences(1);
         tts = new OfflineTts(null, config);
+        return tts;
+    }
+
+    private synchronized OfflineTts ensureChineseTts() {
+        if (chineseTts != null) return chineseTts;
+        File d = chineseDir();
+        OfflineTtsVitsModelConfig vits = new OfflineTtsVitsModelConfig();
+        vits.setModel(new File(d, "model.onnx").getAbsolutePath());
+        vits.setLexicon(new File(d, "lexicon.txt").getAbsolutePath());
+        vits.setTokens(new File(d, "tokens.txt").getAbsolutePath());
+        OfflineTtsModelConfig model = new OfflineTtsModelConfig();
+        model.setVits(vits);
+        model.setNumThreads(2);
+        OfflineTtsConfig config = new OfflineTtsConfig();
+        config.setModel(model);
+        config.setMaxNumSentences(1);
+        chineseTts = new OfflineTts(null, config);
+        return chineseTts;
     }
 
     private synchronized void releaseTts() {
         if (tts != null) {
             tts.release();
             tts = null;
+        }
+        if (chineseTts != null) {
+            chineseTts.release();
+            chineseTts = null;
         }
     }
 
