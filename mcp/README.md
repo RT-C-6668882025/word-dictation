@@ -6,10 +6,10 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
 
 不再使用固定正反面和固定每页条数。词库包含有序 pages，页面包含有序 entries，条目包含有序 blocks。
 
-- 页面：id、title（可选）、columns（1/2/3，默认 1；窄屏自动单列）、visible_count（初始显示前几条，默认全部）。
+- 页面：id、title（可选）、entries（有序条目）。旧字段 columns（1/2/3）与页面 visible_count 仍可读写，但当前学习页不按它们指定列数或限制条目数。应用按设备高度将一个原始页分成若干刷页，一屏可显示多条。
 - 条目：id、blocks、layout（auto/compact/reading，默认 auto）、visible_count（旧词库兼容默认，未单独指定的块按前 N 个显示）、in_whitelist（默认 true）。
 - 内容块：id、label（可选）、text、format（text/markdown，默认 text）、initially_visible（可选，独立指定初始显隐）。数组顺序就是逐层揭示的顺序。不接受自定义 HTML、CSS 或脚本布局。
-- 刷屏与操作位置由应用固定；Agent 只填内容、选初始显隐和三种预设版式。见 [Agent 排版规则](../docs/agent-layout-guide.md)。
+- 刷屏与操作位置由应用固定；Agent 负责原始页顺序、条目、内容块、初始显隐和三种预设版式。当前没有精确指定一屏条数的 MCP 字段。见 [Agent 排版规则](../docs/agent-layout-guide.md)。
 - 页面和条目没有固定条数；整次请求仍受中继 1 MiB 传输容量约束。分批新增、修改和编排可处理大词库。
 
 `compose_wordbook` 新建完整词库；提供 book_id 时整体替换，需要 expected_name 精确匹配，操作前先完整读取并保留未要求改变的内容和 ID。省略的内容将被删除。`get_wordbook_pages` 从 offset（0 起）读取页面，limit 默认 1（最多 20），跟随 next_offset。单页过大时用 `get_words` 分批读取完整正文。
@@ -22,8 +22,6 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
     {
       "id": "page-1",
       "title": "机会成本",
-      "columns": 1,
-      "visible_count": 1,
       "entries": [
         {
           "id": "entry-1",
@@ -42,7 +40,7 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
 
 共 18 个工具：
 
-- compose_wordbook、get_wordbook_pages、set_wordbook_pages：整体编排、读取及重新编排页面。set_wordbook_pages 用 word_ids 指定内容归属和顺序，全部条目必须恰好出现一次；可给新页面 ID 新增页，遗漏旧页删除页；保留正文与白名单。
+- compose_wordbook、get_wordbook_pages、set_wordbook_pages：整体编排、读取及重新编排原始页。set_wordbook_pages 用 word_ids 指定内容归属和顺序，全部条目必须恰好出现一次；可给新页面 ID 新增页，遗漏旧页删除页；保留正文与白名单。页面 columns 和 visible_count 可能在读取结果中出现，但不控制当前刷页。
 - list_wordbooks、get_words、search_wordbook：查询词库、条目和所有内容块，返回出处及页码。get_words/search_wordbook 按响应容量分页，完整正文不截断，跟随 next_offset。
 - add_cards：cards 包含 blocks/layout/visible_count，page_id 指定目标页；position 为页内从 1 开始的位置，默认追加。新增默认加入白名单。
 - update_cards：按 word_id 更新 blocks、独立初始显隐或 layout，保留 ID、页面和白名单；整批有效才保存。
@@ -51,7 +49,7 @@ Agent 管理词库、页面和内容块。应用负责统一排版、上下滑�
 - split_wordbook：指定条目按原页序复制到新词库，保留页面和白名单。只有 move=true 且 expected_name 匹配才从源词库移走；保留空源词库。
 - rename_wordbook、delete_wordbook：重命名或删除词库；删除需 expected_name 精确匹配，仅在用户明确要求时执行。
 - add_to_whitelist、remove_from_whitelist：白名单表示需要继续背记；返回实际 changed_ids。
-- import_wordbook、create_temp_wordbook：接受相同 pages 结构；临时词库仅有名称标记。推荐 compose_wordbook。
+- import_wordbook、create_temp_wordbook：接受相同 pages 结构；临时词库仅有名称标记。内容块的初始显隐使用 initially_visible；条目 visible_count 是兼容默认，页面 visible_count 不控制刷页。推荐 compose_wordbook。
 - get_operation_result：按 request_id 查询保存回执。
 
 set_wordbook_page_size 已从 MCP 工具列表移除。旧版 text/front/back/en/zh 数据和已排队请求仅为兼容保留；新 Agent 使用 pages/blocks。旧词库读取为内容块，原 ID、旧页面边界、正文及白名单保留，不强制重新导入。
