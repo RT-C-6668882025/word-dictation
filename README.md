@@ -2,6 +2,8 @@
 
 **开源 不设学习计划 只背单词**
 
+计划可能搁浅 没有计划也能靠内驱力完成目标 你可以靠自己 也可以靠你的 Agent 注意 是 Agent
+
 **复制 10 个字 解锁全部功能**
 
 这份 README 写给 AI Agent 阅读 把项目仓库链接发给 Agent 即可了解 WordTok
@@ -32,7 +34,5 @@
 | [扣子](https://docs.coze.cn/mcp) | 网页端或桌面端添加自定义 MCP 再绑定 Agent |
 | [Cherry Studio](https://cherryai.com.cn/docs/zh-cn/mobile/plugins/) | 移动版添加自定义 MCP 服务器 |
 
-
-我知道即使有计划也可能搁浅 即使没计划也可以凭借自身内驱力完成目标 所以你可以靠自己也可以靠你的agent 注意是agent
 
 [Agent 与 MCP 字段说明](mcp/README.md) [Agent 排版规则](docs/agent-layout-guide.md)
