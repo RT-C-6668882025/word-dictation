@@ -2,113 +2,29 @@
 
 **复制地址 解锁一切**
 
-在 App 的“关于 → 连接 AI”复制专属 MCP 地址，把它发给能配置自定义远程 MCP 的 Agent，请它连接 WordTok；也可以自己把地址粘贴到 Agent 的 MCP／连接器设置里。连上后，Agent 能整理资料、编排词库、检索知识点、管理白名单，你打开 App 就能刷。地址是你的连接凭据，不要贴到公开帖子或仓库。
+在 App「关于 → 连接 AI」复制 MCP 地址，添加到支持自定义远程 MCP（HTTP）的 Agent。连接后，让 Agent 整理资料、创建词库；打开 WordTok 上下刷着背。
 
-像刷内容一样背单词、知识点和问答。不要求先设计划：打开词库，想背多少就刷多少。看提示、在纸上默写，再点开答案核对。
+[下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk)
 
-**导入或创建词库 → 上下刷页 → 点内容块显隐 → 把还需要背的内容留在白名单。**
+## 功能
 
-[下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk) · [查看发布版本](https://github.com/RT-C-6668882025/word-dictation/releases)
+- **刷着学**：像刷视频一样上下翻页，按手机或平板屏幕自动安排每页内容；不要求制定学习计划。
+- **自由内容块**：单词、知识点、问答都能做成多个块；点块显示或隐藏，支持左右两侧批量显隐。
+- **AI 编排**：Agent 可通过 18 个 MCP 工具创建和管理词库、页面、内容块、初始显隐、预设版式及白名单，也能检索全部内容用于问答和出题。
+- **白名单与索引**：把还需要背的条目留在白名单；从索引查找并跳转。
+- **朗读**：英文可用 KittenTTS，中文及中英混读可下载 MeloTTS；未下载模型时使用系统语音。
+- **导入与保存**：支持粘贴文本及 TXT、CSV、TSV、Markdown、XLS、XLSX、DOC、DOCX、PDF、JSON；词库保存在本机。
 
-## 创建和导入词库
+## 支持的 Agent 客户端
 
-首页可打开、重命名、删除词库，也能进入词库索引。新建词库时可以粘贴内容或选择文件；没有 AI 连接也能使用。
+这些客户端提供自定义远程 MCP 入口：
 
-| 输入 | 处理方式 |
+| 客户端 | 添加方式 |
 | --- | --- |
-| 直接粘贴 | 识别常见的“单词,释义”“问题：答案”、制表符等分隔形式；无法拆成配对内容时保留为一条。 |
-| TXT、CSV、TSV、Markdown | 读取文本、分隔行或 Markdown 表格，再解析为条目。 |
-| XLS、XLSX | 读取第一张表，将行转换为条目。 |
-| DOC、DOCX | 提取文档文字，再解析为条目。 |
-| PDF | 提取可选中的文字；扫描图片型 PDF 不会自动 OCR。 |
-| JSON | 导入卡片数组或带 `pages` 的页面结构，保留多块内容、顺序和初始显隐。 |
+| [豆包工作](https://cli.im/open-api/agent/open-platform-mcp/doubao-work.html) | 电脑版自定义连接器，选择 HTTP。 |
+| [腾讯 WorkBuddy](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Connector) | 自定义连接器。 |
+| [千问办公](https://help.aliyun.com/zh/qwenwork/desktop-connectors) | 桌面端连接器，选择 Streamable HTTP。 |
+| [扣子](https://docs.coze.cn/mcp) | 网页／桌面端添加自定义 MCP，再绑定 Agent。 |
+| [Cherry Studio](https://cherryai.com.cn/docs/zh-cn/mobile/plugins/) | 移动版自定义 MCP 服务器。 |
 
-普通资料导入后即可练习，也可以再让 Agent 整理成知识点、提示和分层答案。文件解析取决于原文结构；需要精确保留多行、代码、公式或每块的初始显隐时，使用页面 JSON 或让 Agent 通过 MCP 创建。
-
-## 内容结构与排版
-
-一个词库由**页面 → 条目 → 内容块**组成。一个条目可以有任意数量的块，没有固定“正面／背面”：词形、词性、释义、例句可以各占一块；知识点也可以拆成问题、提示、规则、例外和例题。
-
-- 每个块可独立设置初始显示或隐藏。旧格式的 `visible_count` 仅作为未单独设置时的兼容默认值。
-- 内容块可用普通文本或 Markdown，展示段落、列表、表格、代码和公式。超宽内容可以横向滚动。
-- Agent 可安排页面标题、条目和内容块顺序，选择 `auto`、`compact`、`reading` 三种预设版式；应用负责最终排版，不接受自定义 CSS。
-- 页面没有固定条数。进入学习页后，应用按设备可用高度把条目分成刷页；平板通常一屏能显示更多条。
-- MCP 旧页面字段 `columns` 和页面 `visible_count` 仍保留兼容，但不控制当前刷页的列数或条目数量；条目的 `visible_count` 仅为未指定 `initially_visible` 的内容块提供默认显隐。
-
-例如，一个知识点可以先显示问题，再隐藏提示和答案：
-
-```json
-{
-  "blocks": [
-    {"text": "什么是机会成本？", "initially_visible": true},
-    {"text": "想想放弃了什么", "initially_visible": false},
-    {"text": "放弃的最佳替代方案的价值。", "initially_visible": false}
-  ],
-  "layout": "reading"
-}
-```
-
-## 刷页与显隐
-
-Android 使用原生竖向分页：手指上下拖动时页面跟随移动，松手后惯性翻页或吸附。长页面先在页内滚动阅读，再继续翻页。网页版本使用浏览器滚动吸附。底部也有“上一页／下一页”按钮和当前位置；重新打开词库会尝试回到上次阅读的原始页。
-
-- **单块显隐**：轻触内容所在格子，在显示与隐藏间切换。喇叭和白名单按钮有独立触控区域。
-- **左侧批量按钮**：位于“上一页”右边，控制当前刷页所有条目的第一个内容块；默认动作是隐藏。
-- **右侧批量按钮**：位于“下一页”左边，控制当前刷页所有条目的第二个内容块；默认动作是显示。只有一块的条目不受它影响，第三块及以后仍可逐块点按。
-- **批量按钮操作**：轻点执行按钮上的动作；长按约半秒切换该按钮的“显示／隐藏”，长按本身不修改内容。
-- **重置显隐**：在学习菜单中恢复内容块的初始显隐设置。
-
-手动点按和批量显隐是**当前阅读过程中的操作**，目前不会把每次点开的状态永久写回词库。退出后重新进入，或 Android 原生页面被系统重建时，可能恢复初始显隐。要长期改变默认状态，可以让 Agent 修改 `initially_visible`。
-
-## 学习菜单、白名单和索引
-
-点左上角 **☰** 或从左侧边缘右划打开菜单；左划、点遮罩或按 Android 返回键关闭。菜单提供首页、索引、语音、练习范围“全部／白名单”和重置显隐。菜单打开时原生刷页暂停接收触摸。
-
-**白名单表示“还需要背”。** 普通新词库默认加入白名单；点条目右侧方框可加入或移出。“全部”查看整个词库，“白名单”只练仍需背的条目。移出白名单不会删除正文，可以重新加入。Agent 还能批量管理白名单。
-
-首页或学习菜单都能进入索引。索引可查看条目、跳到对应位置并调整白名单。应用内索引目前搜索前两块文本；第三块及后续的完整内容可让 Agent 用 `search_wordbook` 检索。
-
-## 朗读
-
-每条内容的**第一个内容块**有喇叭按钮，点按朗读该块文字。学习菜单的“语音”可调整语速；Android 可用系统语音；离线模式下，英文可下载 KittenTTS Micro 并选 8 种音色，中文可单独下载 MeloTTS 中文模型（模型约 163 MB，支持中英混读）。两种模型可分别下载和删除；未下载对应模型时自动使用系统语音及相应语言。网页版本使用浏览器语音合成，并按内容选择中文或英文。朗读不会改变显隐。
-
-## AI Agent 与 MCP
-
-在“关于 → 连接 AI”完成首次配对，复制固定 MCP 地址，添加到支持远程 MCP 的 Agent。应用显示未配对、连接中、已就绪、操作中、重连中等状态；可手动重连或解除配对。配对不是使用 WordTok 的前提。
-
-一些支持自定义远程 MCP 的国内产品（按各自文档核对；选择 **HTTP／Streamable HTTP**，并以连接后能看到 WordTok 工具列表为准）：
-
-| 产品 | 添加入口与设备说明 |
-| --- | --- |
-| [豆包工作](https://cli.im/open-api/agent/open-platform-mcp/doubao-work.html) | 电脑版“技能·连接器·伙伴 → 新建自定义连接器”，传输类型选 HTTP；普通聊天页是否能代为添加，以当前客户端能力为准。 |
-| [腾讯 WorkBuddy](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Connector) | 连接器管理页右上角“自定义连接器”，添加 MCP 服务。 |
-| [千问办公](https://help.aliyun.com/zh/qwenwork/desktop-connectors) | 桌面端“扩展 → 连接器 → 添加”，可手动配置 Streamable HTTP 或导入 JSON。 |
-| [扣子](https://docs.coze.cn/mcp) | 网页／桌面端“扩展 → MCP → 添加自定义 MCP”，需再绑定 Agent；移动端可使用已添加的 MCP，不能新建。 |
-| [Cherry Studio](https://cherryai.com.cn/docs/zh-cn/mobile/plugins/) | 移动版可在“插件 → MCP → 自定义添加服务器”填写远程地址，并在智能体中开启。 |
-
-这里的“支持 MCP”指客户端允许添加**自己的远程 MCP 服务器**；仅提供内置 MCP 市场，或只支持本地 `stdio` 命令的客户端，不能直接粘贴 WordTok 地址。各客户端的版本、账号权限和网络环境会影响实际连接。
-
-| Agent 工作 | 可以做什么 |
-| --- | --- |
-| 整理内容 | 创建多块条目，批量新增、修改、删除条目，设置初始显隐和预设版式。 |
-| 编排页面 | 设置标题、页面顺序、条目归属和顺序。 |
-| 管理词库 | 列出、读取、重命名、删除词库；合并为新词库，或按条目拆分、复制到新词库。 |
-| 管理白名单 | 批量加入或移出需要继续背的条目。 |
-| 检索与学习 | 搜索所有内容块，读取出处和上下文，再由 Agent 回答、比较、解释或逐题提问。应用本身不内置问答模型。 |
-| 查询操作 | 写入超时后按请求编号查回执，避免重复创建内容。 |
-
-附件与原始资料由 Agent 从它自己的云硬盘或其他来源读取，再将整理后的条目写入 WordTok；应用不代替 Agent 上传附件。问答和出题能力取决于所连接的 Agent。18 个 MCP 工具、字段、回执规则和中继部署说明见 [Agent 与 MCP 文档](mcp/README.md) 及 [排版规则](docs/agent-layout-guide.md)。
-
-工具包括：`compose_wordbook`、`set_wordbook_pages`、`add_cards`、`update_cards`、`delete_cards`、`merge_wordbooks`、`split_wordbook`、`list_wordbooks`、`get_wordbook_pages`、`get_words`、`search_wordbook`、`rename_wordbook`、`delete_wordbook`、`add_to_whitelist`、`remove_from_whitelist`、`import_wordbook`、`create_temp_wordbook`、`get_operation_result`。修改操作使用唯一编号；超时先查回执，再用原编号重试。
-
-Android 版可在后台接收已配对 Agent 的指令，并通过通知显示连接状态；锁屏后的运行还取决于系统授予的通知和后台权限。网页版本需要保持页面运行。退出应用、系统强制停止或网络断开时，“已配对”不等于当前在线。
-
-## 本地保存与更新
-
-词库和白名单保存在设备本地，不需要账号，也无需 AI 连接。正常覆盖安装同一签名的新版会保留应用数据；卸载或清除应用数据可能删除词库。
-
-“关于”页可检查 GitHub Release 更新。Android 会下载并校验 APK，再交给系统安装器；安装未完成时可查看诊断信息或重试已下载的包。手机、平板和横竖屏均可使用。
-
----
-
-**作者：RT-C-6668882025** · **拿起笔，开始默写。**
+MCP 字段与操作说明见 [Agent 文档](mcp/README.md)；排版规则见 [Agent 排版规则](docs/agent-layout-guide.md)。
