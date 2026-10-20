@@ -10,6 +10,7 @@
 在 App 的 关于 → 连接 AI 复制专属 MCP 地址 把地址发给支持远程 MCP 的 Agent 并说 **安装这个地址的 MCP**
 腾讯 WorkBuddy 手机 App 已实测可以按这句话直接安装
 
+
 [下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk)
 
 ## 功能
@@ -30,5 +31,8 @@
 | [千问办公](https://help.aliyun.com/zh/qwenwork/desktop-connectors) | 桌面端添加 Streamable HTTP 连接器 |
 | [扣子](https://docs.coze.cn/mcp) | 网页端或桌面端添加自定义 MCP 再绑定 Agent |
 | [Cherry Studio](https://cherryai.com.cn/docs/zh-cn/mobile/plugins/) | 移动版添加自定义 MCP 服务器 |
+
+
+我知道即使有计划也可能搁浅 即使没计划也可以凭借自身内驱力完成目标 所以你可以靠自己也可以靠你的agent 注意是agent
 
 [Agent 与 MCP 字段说明](mcp/README.md) [Agent 排版规则](docs/agent-layout-guide.md)
