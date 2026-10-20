@@ -1,5 +1,9 @@
 # WordTok
 
+**复制地址，解锁一切。**
+
+在 App 的“关于 → 连接 AI”复制专属 MCP 地址，把它发给能配置自定义远程 MCP 的 Agent，请它连接 WordTok；也可以自己把地址粘贴到 Agent 的 MCP／连接器设置里。连上后，Agent 能整理资料、编排词库、检索知识点、管理白名单，你打开 App 就能刷。地址是你的连接凭据，不要贴到公开帖子或仓库。
+
 像刷内容一样背单词、知识点和问答。不要求先设计划：打开词库，想背多少就刷多少。看提示、在纸上默写，再点开答案核对。
 
 **导入或创建词库 → 上下刷页 → 点内容块显隐 → 把还需要背的内容留在白名单。**
@@ -71,6 +75,18 @@ Android 使用原生竖向分页：手指上下拖动时页面跟随移动，松
 ## AI Agent 与 MCP
 
 在“关于 → 连接 AI”完成首次配对，复制固定 MCP 地址，添加到支持远程 MCP 的 Agent。应用显示未配对、连接中、已就绪、操作中、重连中等状态；可手动重连或解除配对。配对不是使用 WordTok 的前提。
+
+一些支持自定义远程 MCP 的国内产品（按各自文档核对；选择 **HTTP／Streamable HTTP**，并以连接后能看到 WordTok 工具列表为准）：
+
+| 产品 | 添加入口与设备说明 |
+| --- | --- |
+| [豆包工作](https://cli.im/open-api/agent/open-platform-mcp/doubao-work.html) | 电脑版“技能·连接器·伙伴 → 新建自定义连接器”，传输类型选 HTTP；普通聊天页是否能代为添加，以当前客户端能力为准。 |
+| [腾讯 WorkBuddy](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Connector) | 连接器管理页右上角“自定义连接器”，添加 MCP 服务。 |
+| [千问办公](https://help.aliyun.com/zh/qwenwork/desktop-connectors) | 桌面端“扩展 → 连接器 → 添加”，可手动配置 Streamable HTTP 或导入 JSON。 |
+| [扣子](https://docs.coze.cn/mcp) | 网页／桌面端“扩展 → MCP → 添加自定义 MCP”，需再绑定 Agent；移动端可使用已添加的 MCP，不能新建。 |
+| [Cherry Studio](https://cherryai.com.cn/docs/zh-cn/mobile/plugins/) | 移动版可在“插件 → MCP → 自定义添加服务器”填写远程地址，并在智能体中开启。 |
+
+这里的“支持 MCP”指客户端允许添加**自己的远程 MCP 服务器**；仅提供内置 MCP 市场，或只支持本地 `stdio` 命令的客户端，不能直接粘贴 WordTok 地址。各客户端的版本、账号权限和网络环境会影响实际连接。
 
 | Agent 工作 | 可以做什么 |
 | --- | --- |
