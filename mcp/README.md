@@ -79,3 +79,17 @@ APK 与中继一起升级后刷新 Agent 工具列表，预期 18 个工具。�
 验证本地及公网 initialize、tools/list、旧地址与原配对、重启持久化和操作回执；使用隔离配对测试 compose_wordbook → get_wordbook_pages → set_wordbook_pages → 内容修改 → 查询结果。同一编号重试不得重复创建；错误批次不保存。模拟设备验证不能替代真实手机验证，手机离线时明确说明未验证项目。
 
 本地检查：npm run build；node --test mcp/relay.test.mjs；npx tsx scripts/check-pages.ts；npx tsx scripts/check-library-management.ts；npx tsx scripts/check-ai.ts；node scripts/check-pages-ui.cjs（需 Playwright Chromium）。Android 工作流额外执行真实 Rhino 回归和 Java 存储测试。
+
+## HTTP MCP 握手与 500 排查
+
+`https://原域名/mcp/<agentToken>` 是无状态、JSON 响应模式的 Streamable HTTP 端点。POST 返回 `application/json`；GET 返回 405 表示不提供可选 SSE 流，不代表不支持 Streamable HTTP。没有 `Mcp-Session-Id` 是有意的；配对凭据不是传输会话 ID。支持四个上述版本的协商；未知请求体版本协商到 2025-11-25，未知 `MCP-Protocol-Version` 请求头返回 400。2024-11-05 消息版本兼容不表示提供旧版 `/sse` 传输。
+
+URL 中的 agentToken 是配对凭据，不是工具的 operation_id 或回执 request_id。服务端仅解析 `/mcp/` 后的单个路径段，允许一个末尾斜线和标准百分号编码；查询参数不参与认证。错误/撤销的凭据返回 404，设备 token 不能代替 agentToken；设备接口单独使用 Bearer deviceToken。无需额外添加 Authorization 即可使用有效的配对 MCP URL；这不是 OAuth 服务。不要把完整地址写入日志或公开 issue。
+
+标准流程为 initialize（200）→ notifications/initialized（202，空响应体）→ tools/list（200，18 个工具）。客户端 POST 的 Accept 应包含 `application/json, text/event-stream`，后续请求带协商版本的 `MCP-Protocol-Version`。已有客户端省略 Accept/Content-Type 时仍保留兼容。通知不会排入手机操作队列；初始化和列工具不要求手机在线，也不写配对数据文件。
+
+损坏 JSON 返回 400/-32700，非对象或无效 JSON-RPC 返回 400/-32600，超过 1 MiB 返回 413；这些输入错误不再落入统一 500。真正内部异常返回 500/-32603 和诊断 ID；用响应的 `X-Request-Id`（也在 error.data.diagnostic_id 中）对应服务端日志的阶段、错误类型、系统错误码和堆栈位置。日志不包含 URL、token、请求体或 JSON 解析原文。不能仅凭旧的“查询原指令编号”提示认定是工具指令故障。
+
+`node mcp/smoke.mjs https://原域名` 会创建并最终撤销隔离配对，用真实公网 HTTPS 请求验证四版本完整握手、18 个工具定义和模拟设备回执，不读取真实词库。`node --test mcp/relay.test.mjs` 使用真实本地 HTTP 验证相同握手、凭据隔离、损坏输入、内部错误诊断、重启持久化及原工具行为。
+
+部署时必须先确认实际运行入口及 Node 版本；仓库中的 relay-local.mjs 只是旧的非持久化启动示例，不能据此覆盖线上启动配置。保留线上 DATA_FILE、现有配对、域名与代理；仅提交 GitHub 不会更新腾讯云服务。若标准 initialize 在线上仍为 500，而同版本本地通过，应按诊断 ID 检查实际运行代码、Node 运行时和反向代理，不能将本地结果当作线上已修复。

@@ -3,16 +3,21 @@ import assert from 'node:assert/strict';
 import {tools} from './relay.mjs';
 const base=(process.argv[2]||'').replace(/\/$/,'');
 if(!/^https:\/\//.test(base))throw Error('Usage: node mcp/smoke.mjs https://your-relay-domain');
-const request=async(path,options={})=>{const r=await fetch(base+path,{...options,signal:AbortSignal.timeout(35000)});if(!r.ok)throw Error('HTTP '+r.status);return r.status===204?null:r.json()};
+const request=async(path,options={})=>{const r=await fetch(base+path,{...options,signal:AbortSignal.timeout(35000)});if(!r.ok)throw Error('HTTP '+r.status);return [202,204].includes(r.status)?null:r.json()};
 assert.equal((await request('/health')).ok,true);
 const pair=await request('/pair',{method:'POST'}),headers={Authorization:'Bearer '+pair.deviceToken};
 const endpoint='/mcp/'+pair.agentToken;
-const rpc=(method,params={})=>request(endpoint,{method:'POST',headers:{'Content-Type':'application/json','MCP-Protocol-Version':'2025-06-18'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+const rpc=(method,params={},version='2025-06-18',notification=false)=>request(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream','MCP-Protocol-Version':version},body:JSON.stringify({jsonrpc:'2.0',...(!notification?{id:1}:{}),method,params})});
 try{
  assert.equal((await rpc('initialize',{protocolVersion:'2025-06-18'})).result.serverInfo.name,'word-dictation');
  const listed=(await rpc('tools/list')).result.tools;
  assert.deepEqual(listed.map(t=>t.name).sort(),tools.map(t=>t.name).sort());
- for(const version of ['2025-11-25','2025-06-18','2025-03-26','2024-11-05'])assert.equal((await rpc('initialize',{protocolVersion:version})).result.protocolVersion,version);
+ for(const version of ['2025-11-25','2025-06-18','2025-03-26','2024-11-05']){
+  assert.equal((await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'wordtok-smoke',version:'1'}},version)).result.protocolVersion,version);
+  assert.equal(await rpc('notifications/initialized',{},version,true),null);
+  assert.deepEqual((await rpc('tools/list',{},version)).result.tools,tools);
+  console.log(version+': initialize 200, notifications/initialized 202, tools/list 200 ('+tools.length+' tools)');
+ }
  await request('/device/poll',{headers});
  const call=rpc('tools/call',{name:'list_wordbooks'});
  const rows=await request('/device/poll',{headers});assert.equal(rows.length,1);
