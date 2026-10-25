@@ -2,7 +2,7 @@
 
 Default: no algorithm; practice only the active deck's whitelist in its original order. A profile can be shared by many decks; each deck independently selects a profile. Never let scheduling mutate whitelist membership.
 
-## Commands to expose through the existing MCP transport
+## Commands exposed through the existing MCP transport
 
 - `get_learning_context({deckId})`: return deck ID, whitelisted item IDs, available event fields, active profile ID and profile catalog.
 - `create_algorithm({profile})`: validate and persist a versioned LearningProfile. Must not activate it automatically.
@@ -41,3 +41,6 @@ A condition AST alone is not a full spaced-repetition model. Scheduling modules 
 4. Algorithm errors fall back to original whitelist order.
 5. MCP test never changes whitelist or active profile.
 6. Left and right hide/show buttons execute current action on tap and immediately switch their own next-action label; no long press.
+
+
+`record_learning_event({deckId,event,operation_id})` stores explicit results; event has id, deckId, itemId, type and millisecond at. Writes require operation_id. Profiles are immutable: use a new ID for revisions. Built-in rule JSON is executable today; Query Builder / JSONLogic / Rete adapters and external plugins remain future extensions. The app does not ship an algorithm editor.

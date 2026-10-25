@@ -1,13 +1,16 @@
+import {scheduleLearning,type LearningEvent} from './learning/strategy';
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {bookPages,needIds,type Book} from './wordbook';
 import {StudyPageContent,type StudyPageModel} from './StudyPageContent';
 import {useNativeStudyPager} from './useNativeStudyPager';
 
-type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onOpenMenu?:()=>void;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void};
-export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOpenMenu=()=>{},onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak}:Props){
- const pages=useMemo(()=>bookPages(book),[book]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
- const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
+const EMPTY_EVENTS:LearningEvent[]=[];
+type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onOpenMenu?:()=>void;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void;events?:LearningEvent[]};
+export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOpenMenu=()=>{},onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak,events=EMPTY_EVENTS}:Props){
  const [scope,setScope]=useState<'all'|'need'>('need'),[feedIndex,setFeedIndex]=useState(0),[reset,setReset]=useState(0);
+ const pages=useMemo(()=>{if(scope==='all'||!book.learningAlgorithm||book.learningAlgorithm.kind==='none')return bookPages(book);const result=scheduleLearning({deckId:book.id,items:book.words.map((w,order)=>({id:w.id,order})),whitelistIds:[...needIds(book)],events,now:Date.now()},book.learningAlgorithm);return [{id:'algorithm:'+book.id,word_ids:result.itemIds,columns:1 as const}]},[book,events,scope]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
+ const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
+
  const [bulkModes,setBulkModes]=useState<[boolean,boolean]>([false,true]);
  const [bulkAction,setBulkAction]=useState<{pageId:string;revision:number;side:0|1;visible:boolean}|null>(null);
  const [measuredGroups,setMeasuredGroups]=useState<Record<string,number[]>>({});
@@ -78,3 +81,4 @@ function BulkButton({side,show,disabled,onApply}:{side:0|1;show:boolean;disabled
  const label=(side===0?'左侧':'右侧')+(show?'显示':'隐藏');
  return <button className="ghost bulkToggle" disabled={disabled} title="点按执行当前动作，随后自动切换显示／隐藏" aria-label={label} onClick={onApply}>{label}</button>;
 }
+

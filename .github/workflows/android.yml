@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [main, codex/general-memory-cards]
+    branches: [main, codex/general-memory-cards, feat/wordtok-learning-strategies]
   workflow_dispatch:
     inputs:
       ai_relay_url:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: android-apk-v4
+  group: android-apk-v4-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   apk:
@@ -268,4 +268,5 @@ jobs:
       - name: Remove signing key
         if: always()
         run: rm -f android/app/word-dictation-release.jks
+
 

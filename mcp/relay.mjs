@@ -21,7 +21,15 @@ const management=[
  {name:'merge_wordbooks',description:'按顺序合并 2–20 个词库为新词库，保留源词库、各页编排、内容及白名单；冲突条目 ID 重新分配，不按正文去重。',inputSchema:schema({operation_id:mutationId,book_ids:{type:'array',minItems:2,maxItems:20,uniqueItems:true,items:string},name:string},['operation_id','book_ids','name'])},
  {name:'split_wordbook',description:'将指定内容按原页面顺序复制到新词库，保留原编排与白名单。默认保留源内容；明确要求移动时 move=true 且 expected_name 精确匹配。',inputSchema:schema({...identity,word_ids:ids,name:string,move:{type:'boolean'},expected_name:string},['operation_id','book_id','word_ids','name'])}
 ];
+const learning=[
+ ...['get_learning_context','get_algorithm','reset_algorithm'].map(name=>({name,description:name==='reset_algorithm'?'恢复无算法，只按白名单原顺序练习。':'读取词库学习设置和白名单；不修改内容。',inputSchema:schema({deckId:string,operation_id:mutationId},name==='reset_algorithm'?['deckId','operation_id']:['deckId'])})),
+ {name:'list_algorithms',description:'列出可跨词库复用的算法配置。',inputSchema:schema({})},
+ {name:'create_algorithm',description:'创建可复用算法，不自动启用。profile: {id,name,version:1,algorithm:{kind:"none"}或{kind:"rules",rules:{filter,sort,limit,seed}}}。filter 为 {all:[条件]}、{any:[条件]}、{not:条件} 或 {field,op,value}；field: errors/correct/lastPracticedAt/order，op: eq/ne/gt/gte/lt/lte。sort: original/random/errors_desc/oldest_first。默认无算法；禁止执行任意代码。',inputSchema:schema({operation_id:mutationId,profile:{type:'object'}},['operation_id','profile'])},
+ ...['test_algorithm','set_algorithm'].map(name=>({name,description:name==='test_algorithm'?'只读预演，返回当前白名单内的排序，不修改算法和白名单。':'为单个词库启用已有算法，其他词库不变。',inputSchema:schema({deckId:string,profileId:string,operation_id:mutationId},name==='set_algorithm'?['deckId','profileId','operation_id']:['deckId','profileId'])})),
+ {name:'record_learning_event',description:'记录用户明确反馈的学习结果；显示答案不代表答对。event: {id,deckId,itemId,type,at}，type: viewed/revealed/remembered/forgotten/answered_correctly/answered_incorrectly，at 为毫秒时间戳。',inputSchema:schema({deckId:string,operation_id:mutationId,event:{type:'object'}},['deckId','operation_id','event'])}
+];
 export const tools=[
+ ...learning,
  ...management,
  {name:'list_wordbooks',description:'查看词库 ID、名称、内容数量及 page_count。',inputSchema:schema({})},
  {name:'get_wordbook_pages',description:'读取 Agent 编排的页面、条目 ID、内容块、显隐数量及白名单；offset 为从 0 开始的页序，limit 默认 1，使用 next_offset 继续读取。单页过大时用 get_words 分批读取正文。',inputSchema:schema({book_id:string,offset:{type:'integer',minimum:0},limit:{type:'integer',minimum:1,maximum:20}},['book_id'])},
@@ -35,7 +43,7 @@ export const tools=[
 ];
 const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 const fingerprint=(name,args)=>createHash('sha256').update(JSON.stringify(canonical([name,args]))).digest('hex');
-const MUTATIONS=new Set([...management.map(t=>t.name),'delete_wordbook','rename_wordbook','add_to_whitelist','remove_from_whitelist','import_wordbook','create_temp_wordbook']);
+const MUTATIONS=new Set(['create_algorithm','set_algorithm','reset_algorithm','record_learning_event',...management.map(t=>t.name),'delete_wordbook','rename_wordbook','add_to_whitelist','remove_from_whitelist','import_wordbook','create_temp_wordbook']);
 export function createRelay({origins=[],timeout=25000,maxSessions=1000,dataFile=null,offlineAfter=20000,deliveryLease=20000,retention=7*86400000,pollWait=1000}={}){
  const sessions=new Map(),devices=new Map();
  const save=()=>{if(!dataFile)return;mkdirSync(dirname(dataFile),{recursive:true,mode:0o700});const snapshot=[...sessions.values()].map(s=>({agent:s.agent,device:s.device,records:[...s.records.values()]}));const tmp=dataFile+'.tmp';writeFileSync(tmp,JSON.stringify({version:2,sessions:snapshot}),{mode:0o600});chmodSync(tmp,0o600);const fd=openSync(tmp,'r');try{fsyncSync(fd)}finally{closeSync(fd)}renameSync(tmp,dataFile);const dir=openSync(dirname(dataFile),'r');try{fsyncSync(dir)}finally{closeSync(dir)}};
@@ -105,3 +113,4 @@ export function createRelay({origins=[],timeout=25000,maxSessions=1000,dataFile=
  server.on('close',()=>{clearInterval(cleanup);for(const s of sessions.values())for(const id of s.waiters.keys())wake(s,id,{request_id:id,status:'unknown',error:'服务正在重启，请查询原编号',data_changed:'unknown'})});return server;
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){const origins=(process.env.ALLOWED_ORIGINS||'https://localhost,http://localhost,https://rt-c-6668882025.github.io').split(',');createRelay({origins,dataFile:process.env.DATA_FILE||'./data/relay.json'}).listen(Number(process.env.PORT||8080),'0.0.0.0')}
+

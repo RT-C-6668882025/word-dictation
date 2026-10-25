@@ -152,12 +152,24 @@ export function scheduleLearning(
 }
 /** MCP-facing commands can validate and store these JSON-serializable profiles. */
 export function validateProfile(profile: LearningProfile): void {
+  if (!profile || typeof profile !== 'object' || !profile.algorithm || typeof profile.id !== 'string' || typeof profile.name !== 'string' || profile.id.length>128 || profile.name.length>200) throw new Error('Invalid learning profile');
   if (profile.version !== 1 || !profile.id || !profile.name) throw new Error('Invalid learning profile');
   if (!['none','rules','plugin'].includes(profile.algorithm.kind)) throw new Error('Unsupported algorithm');
   if (profile.algorithm.kind === 'rules') {
     const rules = profile.algorithm.rules;
+    if(!rules || typeof rules!=='object') throw Error('Invalid rules');
+    if(rules.seed!==undefined&&!Number.isSafeInteger(rules.seed))throw Error('Invalid seed');
+    if(rules.filter)validateCondition(rules.filter,0,{count:0});
     if (rules.limit !== undefined && (!Number.isSafeInteger(rules.limit) || rules.limit < 0)) throw new Error('Invalid limit');
     if (rules.sort && !['original','random','errors_desc','oldest_first'].includes(rules.sort)) throw new Error('Invalid sort');
   }
   if (profile.algorithm.kind === 'plugin' && !profile.algorithm.pluginId) throw new Error('Missing pluginId');
+}
+
+
+function validateCondition(c:Condition,depth:number,budget:{count:number}):void{
+ if(!c||typeof c!=='object'||depth>12||++budget.count>200)throw Error('Invalid condition size');
+ if('all'in c||'any'in c){const nodes='all'in c?c.all:c.any;if(!Array.isArray(nodes))throw Error('Invalid conditions');nodes.forEach(n=>validateCondition(n,depth+1,budget));return}
+ if('not'in c){validateCondition(c.not,depth+1,budget);return}
+ if(!['errors','correct','lastPracticedAt','order'].includes(c.field)||!['eq','ne','gt','gte','lt','lte'].includes(c.op)||!Number.isFinite(c.value))throw Error('Invalid condition');
 }
