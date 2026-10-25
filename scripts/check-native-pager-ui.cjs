@@ -22,7 +22,7 @@ try{for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4188')).ok)brea
  await page.evaluate(owner=>window.emitPager({owner,action:'need',value:'b'}),owner);await page.waitForFunction(()=>window.nativeCalls.some(c=>c.plugin==='AiConnection'&&c.method==='saveBooks'));assert.equal(await page.evaluate(()=>JSON.parse(window.nativeCalls.filter(c=>c.method==='saveBooks').at(-1).options.books)[0].whitelist['1'].length),0);
  assert.equal(await page.locator('.pageNavigation [role=status]').textContent(),'2 / 2');
  assert.equal(await page.getByRole('button',{name:'整页看',exact:true}).count(),0,'there is one swipe mode');
- await page.getByRole('button',{name:'右侧显示（长按切换动作）'}).click();await page.waitForFunction(()=>JSON.parse(window.nativeCalls.filter(c=>c.plugin==='StudyPager'&&c.method==='update').at(-1).options.models)[1].bulk?.visible===true);
+ await page.getByRole('button',{name:'右侧显示'}).click();await page.waitForFunction(()=>JSON.parse(window.nativeCalls.filter(c=>c.plugin==='StudyPager'&&c.method==='update').at(-1).options.models)[1].bulk?.visible===true);
  await page.evaluate(owner=>window.emitPager({owner,action:'menu'}),owner);await page.locator('.studyDrawerLayer.isOpen').waitFor();await page.waitForFunction(()=>window.nativeCalls.filter(c=>c.plugin==='StudyPager'&&c.method==='update').at(-1).options.visible===false);
  await page.getByRole('button',{name:'重置显隐'}).click();await page.waitForFunction(()=>window.nativeCalls.filter(c=>c.plugin==='StudyPager'&&c.method==='update').length>1);
  await page.evaluate(()=>{const snapshot=JSON.parse(localStorage.getItem('wd_state_v3'));snapshot.books[0].pages[1].visible_count=1;window.dispatchEvent(new CustomEvent('wd-native-state',{detail:{snapshot,authoritative:true}}))});await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wd_state_v3')).books[0].pages[1].visible_count===1);
@@ -35,3 +35,4 @@ try{for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4188')).ok)brea
  await page.getByRole('button',{name:'重试已下载的安装包',exact:true}).click();await page.waitForFunction(()=>window.nativeCalls.some(c=>c.plugin==='AppUpdater'&&c.method==='installPending'));
  assert.deepEqual(errors,[]);console.log('PASS Android pager bridge: native container, page events, durable whitelist update, voice-dialog layering, rotation, owner-scoped cleanup, full installer diagnostics and latest-version retry');
 }finally{await browser?.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
+

@@ -17,10 +17,10 @@ try{
   assert.equal(await page.getByRole('button',{name:'整页看',exact:true}).count(),0);
   assert(await page.locator('.pageViewport').evaluate(e=>e.clientHeight>80));
   const first=active().locator('.contentEntry').first();assert.equal(await first.locator('.hiddenBlock,.hideBlock').count(),0);await first.getByRole('button',{name:'显示内容块 2'}).click();await first.getByText('meaning1',{exact:true}).waitFor();await first.getByRole('button',{name:'隐藏内容块 2'}).click();assert.equal(await first.getByText('meaning1',{exact:true}).count(),0);
-  await page.getByRole('button',{name:'右侧显示（长按切换动作）'}).click();await first.getByText('meaning1',{exact:true}).waitFor();
-  const right=page.locator('.bulkToggle').last();await right.hover();await page.mouse.down();await page.waitForTimeout(620);await page.mouse.up();await page.getByRole('button',{name:'右侧隐藏（长按切换动作）'}).click();await first.getByText('meaning1',{exact:true}).waitFor({state:'detached'});
-  await page.getByRole('button',{name:'左侧隐藏（长按切换动作）'}).click();await first.getByText('word1',{exact:true}).waitFor({state:'detached'});
-  const left=page.locator('.bulkToggle').first();await left.hover();await page.mouse.down();await page.waitForTimeout(620);await page.mouse.up();await page.getByRole('button',{name:'左侧显示（长按切换动作）'}).click();await first.getByText('word1',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'右侧显示'}).click();await first.getByText('meaning1',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'右侧隐藏'}).click();await first.getByText('meaning1',{exact:true}).waitFor({state:'detached'});
+  await page.getByRole('button',{name:'左侧隐藏'}).click();await first.getByText('word1',{exact:true}).waitFor({state:'detached'});
+  await page.getByRole('button',{name:'左侧显示'}).click();await first.getByText('word1',{exact:true}).waitFor();
   await first.getByRole('button',{name:'朗读 word1',exact:true}).tap();
   await page.screenshot({path:`layout-checks/swipe-${width}x${height}.png`});
   if(width===412){const r=await page.locator('.pageViewport').boundingBox(),x=r.x+r.width*.6,y=r.y+r.height*.8;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-r.height*.55*i/12}]});await page.waitForTimeout(20)}assert(await page.locator('.pageViewport').evaluate(e=>e.scrollTop)>15,'page follows the finger');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})}
@@ -41,3 +41,4 @@ try{
  await page.getByRole('button',{name:'显示内容块 2'}).click();await page.getByText('本地答案',{exact:true}).waitFor();await page.getByRole('button',{name:'朗读 本地问题'}).click();assert.deepEqual((await page.evaluate(()=>window.nativeActions)).at(-1),{action:'speak',value:'本地问题'});
  assert.deepEqual(errors,[]);console.log('PASS viewport grouping, tablet swipe, touch drag, index, blocks and native renderer');
 }finally{await browser?.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
+
