@@ -1,6 +1,6 @@
 import {contentBlocks,type ParsedWord} from './parser';
 export type BookPage={id:string;title?:string;word_ids:string[];columns:1|2|3;visible_count?:number};
-export type Book={id:string;name:string;pageSize:number;words:ParsedWord[];whitelist:Record<string,string[]>;pages?:BookPage[]};
+export type Book={id:string;name:string;pageSize:number;words:ParsedWord[];whitelist:Record<string,string[]>;learningAlgorithm?:import('./learning/strategy').AlgorithmConfig;learningProfileId?:string|null;pages?:BookPage[]};
 export function bookPages(book:Book):BookPage[]{
  if(book.pages)return book.pages;
  const pages:BookPage[]=[];const size=Math.max(1,book.pageSize||book.words.length||1);
@@ -19,3 +19,4 @@ export function updateWhitelist(book:Book,ids:string[],need:boolean){
  bookPages(book).forEach((p,i)=>{const entries=new Set(whitelist[String(i)]||[]);for(const id of p.word_ids){if(!selected.has(id)||entries.has(id)===need)continue;need?entries.add(id):entries.delete(id);changedIds.push(id)}whitelist[String(i)]=[...entries]});
  return {book:{...book,whitelist},changedIds};
 }
+

@@ -1,7 +1,7 @@
 name: Check study interface
 on:
   push:
-    branches: ['codex/study-layout']
+    branches: ['codex/study-layout', 'feat/wordtok-learning-strategies']
   pull_request:
     branches: [main]
 permissions:
@@ -20,6 +20,8 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: node --test mcp/relay.test.mjs
+      - run: npx --yes tsx scripts/check-learning.ts
+      - run: npx --yes tsx scripts/check-whitelist-save.ts
       - run: npx --yes tsx scripts/check-ai.ts
       - run: npx --yes tsx scripts/check-library-management.ts
       - run: npx --yes tsx scripts/check-pages.ts
@@ -36,3 +38,4 @@ jobs:
         with:
           name: study-layout-screenshots
           path: layout-checks/
+

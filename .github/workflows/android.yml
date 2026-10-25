@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [main, codex/general-memory-cards]
+    branches: [main, codex/general-memory-cards, feat/wordtok-learning-strategies]
   workflow_dispatch:
     inputs:
       ai_relay_url:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: android-apk-v4
+  group: android-apk-v4-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   apk:
@@ -244,7 +244,9 @@ jobs:
           TAG="v${VERSION}"
           NOTES="## WordTok v${VERSION}
 
-          - 当前刷页左右两列可分别批量显示或隐藏，长按按钮切换动作
+          - 左右显隐按钮点按执行后自动切换下一次动作
+          - 白名单连续修改以最后列表为准，保留当前轮次，重进后更新
+          - 默认无算法；Agent 可创建、预演、启用和重置各词库算法，配置可复用
           - 应用名称更新为 WordTok，保留原安装身份与本地词库
           - 轻触内容块直接切换显隐；侧边学习菜单整合首页、索引、语音、范围与重置显隐
           - Agent 可为每个内容块独立设置初始显隐，并选择三种预设版式
@@ -268,4 +270,5 @@ jobs:
       - name: Remove signing key
         if: always()
         run: rm -f android/app/word-dictation-release.jks
+
 

@@ -1,11 +1,13 @@
+import {learningTools,executeLearning,type LearningState} from './learning/operations';
 import {pageTools,planPages,exportPages} from './pageManagement';
 import {bookPages,needIds} from './wordbook';
 import {contentBlocks,allText} from './parser';
 import {managementTools,planManagement} from './libraryManagement';
 
 import type {Book} from './wordbook';
-export type Operations={replaceBooks?:(books:Book[],changedIds:string[])=>void|Promise<void>;remove?:(book:Book)=>void|Promise<void>;rename?:(book:Book,name:string)=>void|Promise<void>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
+export type Operations={learning?:()=>LearningState;saveLearning?:(state:LearningState)=>void;replaceBooks?:(books:Book[],changedIds:string[])=>void|Promise<void>;remove?:(book:Book)=>void|Promise<void>;rename?:(book:Book,name:string)=>void|Promise<void>;books:()=>Book[];change:(book:Book,ids:string[],need:boolean)=>string[]|Promise<string[]>;import:(raw:string,name:string,pageSize:number)=>Book|Promise<Book>};
 export function executeAiCore(name:string,a:Record<string,any>,ops:Operations){
+ if(learningTools.includes(name))return executeLearning(name,a,ops);
  if(pageTools.includes(name)){if(!ops.replaceBooks)throw Error('此执行环境不支持页面编排');const plan=planPages(name,a,ops.books());return mapResult(ops.replaceBooks(plan.books,plan.changedIds),()=>plan.result)}
  if(name==='get_wordbook_pages'){const book=ops.books().find(b=>b.id===a.book_id);if(!book)throw Error('词库不存在');const offset=a.offset??0,limit=a.limit??1;if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>20)throw Error('offset >= 0；limit 为 1–20');const pages=exportPages(book),selected:any[]=[];let bytes=256;for(const p of pages.slice(offset,offset+limit)){bytes+=utf8Size(JSON.stringify(p));if(bytes>800000){if(!selected.length)throw Error('单页超过响应容量，请通过 get_words 分批读取条目');break}selected.push(p)}return {book_id:book.id,name:book.name,total:pages.length,pages:selected,next_offset:offset+selected.length<pages.length?offset+selected.length:null}}
  if(managementTools.includes(name)){if(!ops.replaceBooks)throw Error('此执行环境不支持词库管理');const plan=planManagement(name,a,ops.books());return mapResult(ops.replaceBooks(plan.books,plan.changedIds),()=>plan.result)}
@@ -72,3 +74,4 @@ function mapResult<T>(value:T|Promise<T>,map:(v:T)=>any):any{return value&&typeo
 export async function executeAi(name:string,a:Record<string,any>,ops:Operations){return executeAiCore(name,a,ops)}
 
 function utf8Size(s:string){let bytes=0;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c<128)bytes++;else if(c<2048)bytes+=2;else if(c>=0xd800&&c<=0xdbff&&i+1<s.length&&s.charCodeAt(i+1)>=0xdc00&&s.charCodeAt(i+1)<=0xdfff){bytes+=4;i++}else bytes+=3}return bytes}
+
