@@ -8,7 +8,10 @@ const EMPTY_EVENTS:LearningEvent[]=[];
 type Props={book:Book;page:number;focusId?:string;suspended?:boolean;menuOpen?:boolean;onOpenMenu?:()=>void;onCloseMenu?:()=>void;menuContent?:ReactNode;onPage:(page:number)=>void;onNeed:(id:string)=>void;onSpeak:(text:string)=>void;events?:LearningEvent[]};
 export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOpenMenu=()=>{},onCloseMenu=()=>{},menuContent,onPage,onNeed,onSpeak,events=EMPTY_EVENTS}:Props){
  const [scope,setScope]=useState<'all'|'need'>('need'),[feedIndex,setFeedIndex]=useState(0),[reset,setReset]=useState(0);
- const pages=useMemo(()=>{if(scope==='all'||!book.learningAlgorithm||book.learningAlgorithm.kind==='none')return bookPages(book);const result=scheduleLearning({deckId:book.id,items:book.words.map((w,order)=>({id:w.id,order})),whitelistIds:[...needIds(book)],events,now:Date.now()},book.learningAlgorithm);return [{id:'algorithm:'+book.id,word_ids:result.itemIds,columns:1 as const}]},[book,events,scope]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
+ const [practiceIds,setPracticeIds]=useState(()=>needIds(book));
+ const algorithmKey=JSON.stringify(book.learningAlgorithm??{kind:'none'});
+ useEffect(()=>setPracticeIds(needIds(book)),[book.id,algorithmKey]);
+ const pages=useMemo(()=>{if(scope==='all'||!book.learningAlgorithm||book.learningAlgorithm.kind==='none')return bookPages(book);const result=scheduleLearning({deckId:book.id,items:book.words.map((w,order)=>({id:w.id,order})),whitelistIds:[...needIds(book)],events,now:Date.now()},book.learningAlgorithm);return [{id:'algorithm:'+book.id,word_ids:result.itemIds,columns:1 as const}]},[book,events,scope,practiceIds]),safe=Math.max(0,Math.min(page,pages.length-1)),current=pages[safe];
  const lookup=useMemo(()=>new Map(book.words.map(w=>[w.id,w])),[book.words]),need=useMemo(()=>needIds(book),[book]);
 
  const [bulkModes,setBulkModes]=useState<[boolean,boolean]>([false,true]);
@@ -18,9 +21,9 @@ export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOp
  const settleTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined),lastIndex=useRef(0),external=useRef(false),targetId=useRef<string|null>(null);
  const measureModels=useMemo<StudyPageModel[]>(()=>pages.map(p=>({
   page:{...p,columns:1,visible_count:p.word_ids.length},
-  entries:p.word_ids.flatMap(id=>{const w=lookup.get(id);return w&&(scope==='all'||need.has(id))?[{...w,needed:need.has(id)}]:[]}),
+  entries:p.word_ids.flatMap(id=>{const w=lookup.get(id);return w&&(scope==='all'||practiceIds.has(id))?[{...w,needed:need.has(id)}]:[]}),
   scope:'all',count:null,reset
- })),[pages,lookup,need,scope,reset]);
+ })),[pages,lookup,need,scope,reset,practiceIds]);
  useLayoutEffect(()=>{
   const root=measureRoot.current,view=viewport.current;if(!root||!view)return;
   let frame=0;
@@ -41,7 +44,7 @@ export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOp
   return()=>{observer.disconnect();cancelAnimationFrame(frame)};
  },[measureModels]);
  const feed=useMemo(()=>pages.flatMap((p,source)=>{
-  const ids=p.word_ids.filter(id=>lookup.has(id)&&(scope==='all'||need.has(id)));
+  const ids=p.word_ids.filter(id=>lookup.has(id)&&(scope==='all'||practiceIds.has(id)));
   const sizes=measuredGroups[p.id]??[ids.length],batches=[];
   for(let start=0,part=0;start<ids.length;part++){
    const group=ids.slice(start,start+Math.max(1,sizes[part]??ids.length-start));
@@ -50,7 +53,7 @@ export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOp
    start+=group.length;
   }
   return batches;
- }),[pages,lookup,need,scope,reset,focusId,measuredGroups,bulkAction]);
+ }),[pages,lookup,need,scope,reset,focusId,measuredGroups,bulkAction,practiceIds]);
  const activeIndex=Math.max(0,Math.min(feedIndex,feed.length-1));
  const activeModels:StudyPageModel[]=feed.length?feed.map(item=>item.model):[{page:{id:'feed-empty',word_ids:[],columns:1},entries:[],scope:'all',count:null,reset}];
  const selectIndex=(index:number)=>{const item=feed[index];if(!item)return;setFeedIndex(index);if(item.source!==safe)onPage(item.source)};
@@ -66,7 +69,7 @@ export function PageStudy({book,page,focusId,suspended=false,menuOpen=false,onOp
  const flipBulk=(side:0|1)=>setBulkModes(current=>{const next:[boolean,boolean]=[...current];next[side]=!current[side];return next});
  const bulkButton=(side:0|1)=><BulkButton side={side} show={bulkModes[side]} disabled={!feed.length} onApply={()=>applyBulk(side)}/>;
  return <section className="pageStudy" aria-label="背记页面">
-  <div className={'studyDrawerLayer'+(menuOpen?' isOpen':'')} aria-hidden={!menuOpen} onKeyDown={e=>{if(e.key==='Escape')onCloseMenu()}}><button className="studyDrawerBackdrop" tabIndex={menuOpen?0:-1} aria-label="关闭菜单" onClick={onCloseMenu}/><nav className="studyDrawer" aria-label="学习菜单"><div className="studyDrawerHeading"><b>学习菜单</b><button className="ghost" aria-label="关闭菜单" onClick={onCloseMenu}>×</button></div>{menuContent}<div className="studyDrawerDivider"/><span className="studyDrawerLabel">练习范围</span><div className="scopeControl" role="group" aria-label="练习范围"><button aria-pressed={scope==='all'} className={scope==='all'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('all');onCloseMenu()}}>全部</button><button aria-pressed={scope==='need'} className={scope==='need'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('need');onCloseMenu()}}>白名单</button></div><button className="ghost studyReset" onClick={()=>{setReset(r=>r+1);onCloseMenu()}}>重置显隐</button></nav></div>
+  <div className={'studyDrawerLayer'+(menuOpen?' isOpen':'')} aria-hidden={!menuOpen} onKeyDown={e=>{if(e.key==='Escape')onCloseMenu()}}><button className="studyDrawerBackdrop" tabIndex={menuOpen?0:-1} aria-label="关闭菜单" onClick={onCloseMenu}/><nav className="studyDrawer" aria-label="学习菜单"><div className="studyDrawerHeading"><b>学习菜单</b><button className="ghost" aria-label="关闭菜单" onClick={onCloseMenu}>×</button></div>{menuContent}<div className="studyDrawerDivider"/><span className="studyDrawerLabel">练习范围</span><div className="scopeControl" role="group" aria-label="练习范围"><button aria-pressed={scope==='all'} className={scope==='all'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setScope('all');onCloseMenu()}}>全部</button><button aria-pressed={scope==='need'} className={scope==='need'?'on':''} onClick={()=>{targetId.current=feed[activeIndex]?.ids[0]??null;setPracticeIds(needIds(book));setScope('need');onCloseMenu()}}>白名单</button></div><button className="ghost studyReset" onClick={()=>{setReset(r=>r+1);onCloseMenu()}}>重置显隐</button></nav></div>
   <div className={'pageViewport'+(native?' nativePagerSlot':' snapPager')} ref={viewport} tabIndex={0} aria-label="上下拖动翻页，松手吸附"
    onTouchStart={()=>{external.current=false;clearTimeout(settleTimer.current)}} onWheel={()=>{external.current=false}}
    onScroll={()=>{if(native||external.current)return;clearTimeout(settleTimer.current);settleTimer.current=setTimeout(()=>{const el=viewport.current;if(!el||!el.clientHeight)return;const index=Math.max(0,Math.min(activeModels.length-1,Math.round(el.scrollTop/el.clientHeight)));if(index!==lastIndex.current){lastIndex.current=index;selectIndex(index)}},100)}}
