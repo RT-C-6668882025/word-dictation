@@ -38,3 +38,19 @@
 
 [Agent 与 MCP 字段说明](mcp/README.md) [Agent 排版规则](docs/agent-layout-guide.md)
 
+## Agent Skills 词库生态
+
+`skills/` 下是四个职责独立的 Skill 把「找词库 定策略 写进 App」拆开 由 Agent 自动编排
+
+| Skill | 职责 |
+| --- | --- |
+| `wordtok` | 路由 判断缺内容还是缺策略 选择下一步 核对事实 |
+| `wordtok-source` | 找词库或解析用户文件 评估覆盖与字段 归一化为 pages 载荷 |
+| `wordtok-strategy` | 把学习目标翻译成白名单范围 排序规则 揭示顺序 |
+| `wordtok-ops` | 调用 MCP 幂等写入 分批 回读验证 破坏性操作前备份 |
+
+安装 把 `skills/` 下四个目录复制到 Agent 的 skills 路径（如 `~/.agents/skills/`）即可 Minis 直接放到共享 skills 目录
+Skill 之间用 `skills/wordtok/references/protocol.md` 定义的交接信封通信
+26 个 MCP 工具的字段 状态机与 1 MiB / 500 卡 / 25 秒限制见 `skills/wordtok/references/mcp-contract.md`
+
+
