@@ -4,7 +4,7 @@
 
 计划可能搁浅 没有计划也能靠内驱力完成目标 你可以靠自己 也可以靠你的 Agent 注意 是 Agent
 
-**复制 10 个字 解锁全部功能**
+**复制MCP地址即可解锁全部功能**
 
 这份 README 写给 AI Agent 阅读 把项目仓库链接发给 Agent 即可了解 WordTok
 [项目仓库](https://github.com/RT-C-6668882025/word-dictation)
