@@ -28,7 +28,6 @@
     "remark-math": "^6.0.0",
     "typescript": "latest",
     "vite": "latest",
-    "vite-plugin-pwa": "latest",
     "xlsx": "latest"
   },
   "devDependencies": {
@@ -41,4 +40,3 @@
     "esbuild": "^0.28.2"
   }
 }
-

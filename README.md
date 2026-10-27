@@ -15,6 +15,8 @@
 
 [下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk)
 
+WordTok 仅提供 Android App，不再提供网页版或 PWA。
+
 ## 功能
 
 - **刷着学** 像刷视频一样上下翻页 根据设备屏幕自动安排内容 无需学习计划
