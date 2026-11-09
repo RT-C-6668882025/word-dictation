@@ -1,9 +1,5 @@
 # WordTok
 
-**开源 不设学习计划 只背单词**
-
-计划可能搁浅 没有计划也能靠内驱力完成目标 你可以靠自己 也可以靠你的 Agent 注意 是 Agent
-
 WordTok 是一款 Android App，像刷视频一样背单词。词库保存在本机，可自行导入，也可交给 Agent 编排。
 
 [下载 Android APK](https://github.com/RT-C-6668882025/word-dictation/releases/latest/download/word-dictation.apk)
